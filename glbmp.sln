@@ -1,0 +1,28 @@
+Microsoft Visual Studio Solution File, Format Version 7.00
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "glbmp", "glbmp.vcproj", "{26E4B2D5-9739-482C-87C6-F5BB37C2E3A3}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "glbmp-test", "glbmp-test.vcproj", "{8DCCD333-7C93-4703-95EA-212634B8143B}"
+EndProject
+Global
+	GlobalSection(SolutionConfiguration) = preSolution
+		ConfigName.0 = Debug
+		ConfigName.1 = Release
+	EndGlobalSection
+	GlobalSection(ProjectDependencies) = postSolution
+		{8DCCD333-7C93-4703-95EA-212634B8143B}.0 = {26E4B2D5-9739-482C-87C6-F5BB37C2E3A3}
+	EndGlobalSection
+	GlobalSection(ProjectConfiguration) = postSolution
+		{26E4B2D5-9739-482C-87C6-F5BB37C2E3A3}.Debug.ActiveCfg = Debug|Win32
+		{26E4B2D5-9739-482C-87C6-F5BB37C2E3A3}.Debug.Build.0 = Debug|Win32
+		{26E4B2D5-9739-482C-87C6-F5BB37C2E3A3}.Release.ActiveCfg = Release|Win32
+		{26E4B2D5-9739-482C-87C6-F5BB37C2E3A3}.Release.Build.0 = Release|Win32
+		{8DCCD333-7C93-4703-95EA-212634B8143B}.Debug.ActiveCfg = Debug|Win32
+		{8DCCD333-7C93-4703-95EA-212634B8143B}.Debug.Build.0 = Debug|Win32
+		{8DCCD333-7C93-4703-95EA-212634B8143B}.Release.ActiveCfg = Release|Win32
+		{8DCCD333-7C93-4703-95EA-212634B8143B}.Release.Build.0 = Release|Win32
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+	EndGlobalSection
+	GlobalSection(ExtensibilityAddIns) = postSolution
+	EndGlobalSection
+EndGlobal

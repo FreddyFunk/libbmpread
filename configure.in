@@ -1,0 +1,6 @@
+AC_INIT(glbmp.c)
+AM_INIT_AUTOMAKE(glbmp-test,0.1)
+AC_PROG_CC
+AC_CHECK_LIB(GL, glBegin,,exit -1)
+AC_CHECK_LIB(glut, glutInit,,exit -1)
+AC_OUTPUT(Makefile)
