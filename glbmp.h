@@ -19,16 +19,18 @@
 *  3. This notice may not be removed or altered from any source distribution. *
 *                                                                             *
 * The "official" glbmp webpage is: http://chaoslizard.sourceforge.net/glbmp/  *
-* Contact the author at: chaoslizard@gamebox.net                              *
+* Contact the author at: charles [at] chaoslizard [dot] org                   *
 ******************************************************************************/
 
 
 /******************************************************************************
-* glbmp.h v1.0 (2005 Mar. 14)                                                 *
+* glbmp.h v1.1 (2005 Mar. 15)                                                 *
 *                                                                             *
 * changes                                                                     *
 * -------                                                                     *
 * 2005-03-14/CL - Initial version.                                            *
+* 2005-03-15/CL - Added byte-swapping code to glbmp.c for big-endian          *
+*                 architectures (no changes here, just keeping synchronized). *
 ******************************************************************************/
 
 

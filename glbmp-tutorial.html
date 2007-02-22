@@ -1,0 +1,161 @@
+<html>
+<head>
+<title>glbmp tutorial</title>
+</head>
+<body>
+
+<h1>Basic Use</h1>
+
+<p>
+This little guide should get you started.  Important items are <strong>strong</strong>.
+</p>
+
+<ul>
+    <li>Start by <strong>get</strong>ting <strong>glbmp</strong> from <a href="http://chaoslizard.sourceforge.net/glbmp/">http://chaoslizard.sourceforge.net/glbmp/</a>.</li>
+    <li>Drop <strong>glbmp.c</strong> and <strong>glbmp.h</strong> into your project's source directory, and <strong>add them to the makefile or project file</strong> (I'll leave this part up to you) so they'll be compiled into your project.</li>
+    <li><code><strong>#include "glbmp.h"</strong></code> at the top of each file using glbmp.</li>
+    <li>In your texture loader function, declare a <code>glbmp_t</code> object (<code><strong>glbmp_t bitmap;</strong></code>).</li>
+    <li>To actually load the bitmap, do <code><strong>glbmp_LoadBitmap("some.bmp", 0, &amp;bitmap);</strong></code>.  This returns nonzero if the bitmap was successfully loaded.  The <code>0</code> in the middle is the flags parameter, which is mainly for if you're using the bitmap for something other than OpenGL textures.  See glbmp.h to see what magic you can work there.</li>
+    <li>Use the members of <code>bitmap</code> to call OpenGL texture creation functions, as in <code><strong>glTexImage2D(GL_TEXTURE_2D, 0, 3, bitmap.width, bitmap.height, 0, GL_RGB, GL_UNSIGNED_BYTE, bitmap.rgb_data);</strong></code>.</li>
+    <li>When you're done creating the OpenGL texture, do <code><strong>glbmp_FreeBitmap(&amp;bitmap);</strong></code> to free up the memory.</li>
+    <li>That's all.</li>
+</ul>
+
+<h2>Example</h2>
+
+<p>
+That whole thing might look something like this (code involving glbmp is <strong>strong</strong>):
+</p>
+
+<pre><code>#include &lt;stdio.h&gt;
+
+#include &lt;GL/gl.h&gt;
+<strong>#include "glbmp.h"</strong>
+
+...
+
+/* Loads the specified bitmap file from disk and copies it into an OpenGL texture.
+ * Returns the GLuint representing the texture (calls exit(1) if the bitmap fails to load).
+ */
+GLuint LoadTexture(const char * bitmap_file)
+{
+   GLuint texture = 0; //OpenGL texture to create and return
+   <strong>glbmp_t bitmap;</strong>     //object to fill with data from glbmp
+
+   //try to load the specified file--if it fails, dip out
+   if(!<strong>glbmp_LoadBitmap(bitmap_file, 0, &amp;bitmap)</strong>)
+   {
+      fprintf(stderr, "Error loading bitmap file: %s\n", bitmap_file);
+      exit(1);
+   }
+
+   //generate and bind the OpenGL texture
+   glGenTextures(1, &amp;texture);
+   glBindTexture(GL_TEXTURE_2D, texture);
+
+   //copy data from bitmap into texture
+   glTexImage2D(GL_TEXTURE_2D, 0, 3, <strong>bitmap.width</strong>, <strong>bitmap.height</strong>,
+                0, GL_RGB, GL_UNSIGNED_BYTE, <strong>bitmap.rgb_data</strong>);
+
+   //set up texture filtering
+   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+   //free the bitmap
+   <strong>glbmp_FreeBitmap(&amp;bitmap);</strong>
+
+   return texture;
+}
+
+...
+
+void SomeInitFunction(void)
+{
+   GLuint tex1;
+   ...
+   tex1 = LoadTexture("texture1.bmp");
+   ...
+}
+</code></pre>
+
+<hr />
+
+<h1>glaux Replacement</h1>
+
+<p>
+Here is everything you need to do to remove all that pesky glaux code.  Differences in each line are <strong>strong</strong>.
+</p>
+
+<table>
+<tr>
+    <th>Change</th>
+    <th>To</th>
+
+</tr>
+<tr>
+    <td><code>#include <strong>&lt;GL/glaux.h&gt;</strong></code></td>
+    <td><code>#include <strong>"glbmp.h"</strong></code></td>
+</tr>
+<tr>
+    <td><code><strong>AUX_RGBImageRec * img;</strong></code></td>
+    <td><code><strong>glbmp_t bitmap;</strong></code></td>
+
+</tr>
+<tr>
+    <td><code><strong>img = auxDIBImageLoad("some.bmp");</strong></code></td>
+    <td><code><strong>glbmp_LoadBitmap("some.bmp", 0, &amp;bitmap)</strong></code></td>
+</tr>
+<tr>
+    <td><code>glTexImage2D(GL_TEXTURE_2D, 0, 3, <strong>img-&gt;sizeX</strong>, <strong>img-&gt;sizeY</strong>, 0, GL_RGB, GL_UNSIGNED_BYTE, <strong>img-&gt;data</strong>);</code></td>
+
+    <td><code>glTexImage2D(GL_TEXTURE_2D, 0, 3, <strong>bitmap.width</strong>, <strong>bitmap.height</strong>, 0, GL_RGB, GL_UNSIGNED_BYTE, <strong>bitmap.rgb_data</strong>);</code></td>
+</tr>
+<tr>
+    <td><code><strong>free(img-&gt;data); free(img);</strong></code></td>
+    <td><code><strong>glbmp_FreeBitmap(&amp;bitmap);</strong></code></td>
+
+</tr>
+</table>
+
+<p>
+You'll also obviously have to adjust your error handling code appropriately.  For example:
+</p>
+
+<table>
+<tr>
+    <th>Change</th>
+    <th>To</th>
+</tr>
+<tr>
+    <td><pre><code>img = auxDIBImageLoad("some.bmp");
+if(!img)
+{
+   //error
+}
+
+</code></pre></td>
+    <td><pre><code>if(!glbmp_LoadBitmap("some.bmp", 0, &amp;bitmap))
+{
+   //error
+}
+</code></pre></td>
+</tr>
+</table>
+
+<hr />
+
+<h1>Further Information</h3>
+<p>
+For more information about how to use glbmp, just look in the header.  Everything you need to know (such as semantics of the function calls) is in there.
+</p>
+
+<p>
+Also, check out the glbmp webpage: <a href="http://chaoslizard.sourceforge.net/glbmp/">http://chaoslizard.sourceforge.net/glbmp/</a>.
+</p>
+
+<p>
+This document was written by the author of glbmp, Charles Lindsay.  I can be reached at <a href="mailto:charles [at] chaoslizard [dot] org">charles [at] chaoslizard [dot] org</a> with questions, bug reports, and so on.  While I intend for this document to be useful, I make no claims about the validity of any information here.
+</p>
+
+</body>
+</html>

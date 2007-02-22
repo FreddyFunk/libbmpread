@@ -19,16 +19,17 @@
 *  3. This notice may not be removed or altered from any source distribution. *
 *                                                                             *
 * The "official" glbmp webpage is: http://chaoslizard.sourceforge.net/glbmp/  *
-* Contact the author at: chaoslizard@gamebox.net                              *
+* Contact the author at: charles [at] chaoslizard [dot] org                   *
 ******************************************************************************/
 
 
 /******************************************************************************
-* glbmp.c v1.0 (2005 Mar. 14)                                                 *
+* glbmp.c v1.1 (2005 Mar. 15)                                                 *
 *                                                                             *
 * changes                                                                     *
 * -------                                                                     *
 * 2005-03-14/CL - Initial version.                                            *
+* 2005-03-15/CL - Added byte-swapping code (for big-endian architectures).    *
 ******************************************************************************/
 
 
@@ -54,6 +55,18 @@
    typedef          long  int32_t;  /* must be 32 bits, signed */
 #else
 #  include <stdint.h> /* most modern compilers have stdint.h */
+#endif
+
+/* Hack to determine endianness of architecture, to byte swap if necessary.  */
+/* If my list is incomplete, just define __LITTLE_ENDIAN__ or don't.         */
+#if(defined(__i386__) || defined(__i386) || defined(__x86_64__)    \
+ || defined(__alpha__) || defined(__alpha) || defined(__ia64__)    \
+ || defined(_WIN32) || defined(WIN32) || defined(_WIN64)           \
+ || defined(__arm__) || (defined(__mips__) && defined(__MIPSEL__)) \
+ || defined(__SYMBIAN32__) || defined(__LITTLE_ENDIAN__))
+#undef _GLBMP_BYTESWAP   //undef to do no swapping
+#else
+#define _GLBMP_BYTESWAP  //tell glbmp to swap bytes
 #endif
 
 
@@ -172,6 +185,23 @@ void glbmp_FreeBitmap(glbmp_t * p_bmp)
    }
 }
 
+/* _bmp_Swap32 and _bmp_Swap16
+ *
+ * Performs byte swapping on big-endian architectures (bmp native file format
+ * is little-endian).  They both accept a 16 or 32 bit integer and spit back
+ * out a byte-swapped representation of that integer.  Word.
+ */
+#ifdef _GLBMP_BYTESWAP
+static uint32_t _bmp_Swap32(uint32_t x)
+{
+   return((x >> 24) | ((x >> 8) & 0xff00) | ((x << 8) & 0xff0000) | (x << 24));
+}
+static uint16_t _bmp_Swap16(uint16_t x)
+{
+   return ((x >> 8) | (x << 8));
+}
+#endif
+
 /* _bmp_ReadHeader
  *
  * Reads the bitmap header from the file in the context object.  Assumes that
@@ -180,12 +210,29 @@ void glbmp_FreeBitmap(glbmp_t * p_bmp)
  */
 static int _bmp_ReadHeader(_bmp_read_context * p_ctx)
 {
-              /* read first char (should be 'B') */
-   return (   fgetc(p_ctx->fp) == 0x42
-              /* read next char (should be 'M') */
-           && fgetc(p_ctx->fp) == 0x4d
-              /* then read rest of header */
-           && fread(&p_ctx->header, sizeof(_bmp_header), 1, p_ctx->fp) == 1);
+   int success = 0; /* we haven't succeeded yet */
+
+   do
+   {
+      /* read first char (should be 'B') */
+      if(fgetc(p_ctx->fp) != 0x42)                                      break;
+
+      /* read next char (should be 'M') */
+      if(fgetc(p_ctx->fp) != 0x4d)                                      break;
+
+      /* then read rest of header */
+      if(fread(&p_ctx->header, sizeof(_bmp_header), 1, p_ctx->fp) != 1) break;
+
+      /* swap bytes for other architectures */
+#ifdef _GLBMP_BYTESWAP
+      p_ctx->header.file_size   = _bmp_Swap32(p_ctx->header.file_size);
+      p_ctx->header.data_offset = _bmp_Swap32(p_ctx->header.data_offset);
+#endif
+
+      success = 1;
+   } while(0);
+
+   return success;
 }
 
 /* _bmp_IsPowerOf2
@@ -251,6 +298,16 @@ static int _bmp_ReadInfo(_bmp_read_context * p_ctx, int flags)
    {
       /* read in actual info struct */
       if(fread(&p_ctx->info, sizeof(_bmp_info), 1, p_ctx->fp) != 1)      break;
+
+      /* swap bytes for other architectures */
+#ifdef _GLBMP_BYTESWAP
+      p_ctx->info.info_size   =     _bmp_Swap32(p_ctx->info.info_size);
+      p_ctx->info.width  = (int32_t)_bmp_Swap32((uint32_t)p_ctx->info.width);
+      p_ctx->info.height = (int32_t)_bmp_Swap32((uint32_t)p_ctx->info.height);
+      p_ctx->info.planes      =     _bmp_Swap16(p_ctx->info.planes);
+      p_ctx->info.bits        =     _bmp_Swap16(p_ctx->info.bits);
+      p_ctx->info.compression =     _bmp_Swap32(p_ctx->info.compression);
+#endif
 
       /* make sure size is valid (power of 2 checking is later )*/
       if(p_ctx->info.width <= 0 || p_ctx->info.height == 0)              break;

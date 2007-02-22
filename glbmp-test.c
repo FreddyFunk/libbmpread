@@ -19,7 +19,7 @@
 *  3. This notice may not be removed or altered from any source distribution. *
 *                                                                             *
 * The "official" glbmp webpage is: http://chaoslizard.sourceforge.net/glbmp/  *
-* Contact the author at: chaoslizard@gamebox.net                              *
+* Contact the author at: charles [at] chaoslizard [dot] org                   *
 ******************************************************************************/
 
 
@@ -45,7 +45,7 @@ int main(int argc, char * argv[])
    glbmp_t bmp;
 
    puts("glbmp-test - test utility for glbmp (http://chaoslizard.sourceforge.net/glbmp/)");
-   puts("Copyright (C) 2005 Charles Lindsay (chaoslizard@gamebox.net)");
+   puts("Copyright (C) 2005 Charles Lindsay (charles [at] chaoslizard [dot] org)");
    puts("This program is released under the zlib license (see glbmp-license.txt) and");
    puts("comes with absolutely no warranty whatsoever.");
    puts("");
