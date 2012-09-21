@@ -51,9 +51,9 @@
  || defined(_WIN32) || defined(WIN32) || defined(_WIN64)           \
  || defined(__arm__) || (defined(__mips__) && defined(__MIPSEL__)) \
  || defined(__SYMBIAN32__) || defined(__LITTLE_ENDIAN__))
-#undef _BMPREAD_BYTESWAP   //undef to do no swapping
+#undef _BMPREAD_BYTESWAP   /* undef to do no swapping */
 #else
-#define _BMPREAD_BYTESWAP  //tell bmpread to swap bytes
+#define _BMPREAD_BYTESWAP  /* tell bmpread to swap bytes */
 #endif
 
 
