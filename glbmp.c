@@ -21,16 +21,6 @@
 
 
 /******************************************************************************
-* glbmp.c v1.1 (2005 Mar. 15)                                                 *
-*                                                                             *
-* changes                                                                     *
-* -------                                                                     *
-* 2005-03-14/CL - Initial version.                                            *
-* 2005-03-15/CL - Added byte-swapping code (for big-endian architectures).    *
-******************************************************************************/
-
-
-/******************************************************************************
 * I'm pretty sure this source is 100 per cent ANSI C compliant, and therefore *
 * portable to just about everywhere in the universe.  Let me know if I'm      *
 * wrong.                                                                      *

@@ -20,17 +20,6 @@
 ******************************************************************************/
 
 
-/******************************************************************************
-* glbmp.h v1.1 (2005 Mar. 15)                                                 *
-*                                                                             *
-* changes                                                                     *
-* -------                                                                     *
-* 2005-03-14/CL - Initial version.                                            *
-* 2005-03-15/CL - Added byte-swapping code to glbmp.c for big-endian          *
-*                 architectures (no changes here, just keeping synchronized). *
-******************************************************************************/
-
-
 #ifndef __glbmp_h__
 #define __glbmp_h__
 
