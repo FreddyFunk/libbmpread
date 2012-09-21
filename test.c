@@ -57,7 +57,7 @@ int main(int argc, char * argv[])
    }
 
    printf("Loading %s...", argv[1]);
-   if(!bmpread_LoadBitmap(argv[1], 0, &bmp))
+   if(!bmpread(argv[1], 0, &bmp))
    {
       puts("error!");
       return 1;
@@ -97,7 +97,7 @@ int main(int argc, char * argv[])
    }
    //*/
 
-   bmpread_FreeBitmap(&bmp);
+   bmpread_free(&bmp);
 
    glutPostRedisplay();
    glutMainLoop();

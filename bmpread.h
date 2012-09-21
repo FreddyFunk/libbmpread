@@ -31,8 +31,8 @@ extern "C"
 
 /* bmpread_t
  *
- * The struct returned by bmpread_LoadBitmap.  It has enough information to
- * enable you to use it in OpenGL texture creation.
+ * The struct returned by bmpread.  It has enough information to enable you to
+ * use it in OpenGL texture creation.
  */
 typedef struct bmpread_t
 {
@@ -54,7 +54,7 @@ typedef struct bmpread_t
 #define BMPREAD_ANY_SIZE   4
 
 
-/* bmpread_LoadBitmap
+/* bmpread
  *
  * Loads the specified bitmap file from disk and converts the data to a format
  * usable by OpenGL.  The bitmap file must be 1, 4, 8, or 24 bits, and not
@@ -72,35 +72,33 @@ typedef struct bmpread_t
  * 1 if the file loaded ok.
  *
  * Notes:
- * Standard behavior is for bmpread_LoadBitmap to return rgb_data starting with
- * the last scan line and ending with the first (this is apparently how OpenGL
- * expects data).  If you're using the data for something else and want normal
- * top-down data, specify BMPREAD_TOP_DOWN in flags.  Also, bmpread_LoadBitmap
- * will normally fail if the bitmap has width or height that isn't a power of
- * 2.  To ignore this restriction (though your bitmap may not render in
- * OpenGL), specify BMPREAD_ANY_SIZE in flags.  Finally, bmpread_LoadBitmap
- * will DWORD align the scan lines by default (only very small files need
- * padding, unless you specify BMPREAD_ANY_SIZE), but again if you need byte-
- * packed data, specify BMPREAD_BYTE_ALIGN in flags (may break OpenGL though).
+ * Standard behavior is for bmpread to return rgb_data starting with the last
+ * scan line and ending with the first (this is apparently how OpenGL expects
+ * data).  If you're using the data for something else and want normal top-down
+ * data, specify BMPREAD_TOP_DOWN in flags.  Also, bmpread will normally fail
+ * if the bitmap has width or height that isn't a power of 2.  To ignore this
+ * restriction (though your bitmap may not render in OpenGL), specify
+ * BMPREAD_ANY_SIZE in flags.  Finally, bmpread will DWORD align the scan lines
+ * by default (only very small files need padding, unless you specify
+ * BMPREAD_ANY_SIZE), but again if you need byte-packed data, specify
+ * BMPREAD_BYTE_ALIGN in flags (may break OpenGL though).
  */
-int bmpread_LoadBitmap(const char * bmp_file,
-                       int flags,
-                       bmpread_t * p_bmp_out);
+int bmpread(const char * bmp_file, int flags, bmpread_t * p_bmp_out);
 
 
-/* bmpread_FreeBitmap
+/* bmpread_free
  *
- * Frees memory allocated during bmpread_LoadBitmap.  Call bmpread_FreeBitmap
- * when you are done using the bmpread_t struct (i.e., after you have passed
- * the data on to OpenGL).
+ * Frees memory allocated during bmpread.  Call bmpread_free when you are done
+ * using the bmpread_t struct (i.e., after you have passed the data on to
+ * OpenGL).
  *
  * Inputs:
- * p_bmp - The pointer returned by bmpread_LoadBitmap.
+ * p_bmp - The pointer returned by bmpread.
  *
  * Returns:
  * void
  */
-void bmpread_FreeBitmap(bmpread_t * p_bmp);
+void bmpread_free(bmpread_t * p_bmp);
 
 
 #ifdef __cplusplus

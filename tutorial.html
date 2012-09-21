@@ -23,18 +23,18 @@ This little guide should get you started.  Important items are
     <li>In your texture loader function, declare a <code>bmpread_t</code>
     object (<code><strong>bmpread_t bitmap;</strong></code>).</li>
     <li>To actually load the bitmap, do
-    <code><strong>bmpread_LoadBitmap("some.bmp", 0, &amp;bitmap);</strong></code>.
-    This returns nonzero if the bitmap was successfully loaded.  The
-    <code>0</code> in the middle is the flags parameter, which is mainly for if
-    you're using the bitmap for something other than OpenGL textures.  See
-    bmpread.h to see what magic you can work there.</li>
+    <code><strong>bmpread("some.bmp", 0, &amp;bitmap);</strong></code>.  This
+    returns nonzero if the bitmap was successfully loaded.  The <code>0</code>
+    in the middle is the flags parameter, which is mainly for if you're using
+    the bitmap for something other than OpenGL textures.  See bmpread.h to see
+    what magic you can work there.</li>
     <li>Use the members of <code>bitmap</code> to call OpenGL texture creation
     functions, as in <code><strong>glTexImage2D(GL_TEXTURE_2D, 0, 3,
     bitmap.width, bitmap.height, 0, GL_RGB, GL_UNSIGNED_BYTE,
     bitmap.rgb_data);</strong></code>.</li>
     <li>When you're done creating the OpenGL texture, do
-    <code><strong>bmpread_FreeBitmap(&amp;bitmap);</strong></code> to free up
-    the memory.</li>
+    <code><strong>bmpread_free(&amp;bitmap);</strong></code> to free up the
+    memory.</li>
     <li>That's all.</li>
 </ul>
 
@@ -62,7 +62,7 @@ GLuint LoadTexture(const char * bitmap_file)
    <strong>bmpread_t bitmap;</strong> //object to fill with data from bmpread
 
    //try to load the specified file--if it fails, dip out
-   if(!<strong>bmpread_LoadBitmap(bitmap_file, 0, &amp;bitmap)</strong>)
+   if(!<strong>bmpread(bitmap_file, 0, &amp;bitmap)</strong>)
    {
       fprintf(stderr, "Error loading bitmap file: %s\n", bitmap_file);
       exit(1);
@@ -81,7 +81,7 @@ GLuint LoadTexture(const char * bitmap_file)
    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
    //free the bitmap
-   <strong>bmpread_FreeBitmap(&amp;bitmap);</strong>
+   <strong>bmpread_free(&amp;bitmap);</strong>
 
    return texture;
 }
@@ -123,8 +123,7 @@ Differences in each line are <strong>strong</strong>.
 </tr>
 <tr>
     <td><code><strong>img = auxDIBImageLoad("some.bmp");</strong></code></td>
-    <td><code><strong>bmpread_LoadBitmap("some.bmp", 0,
-    &amp;bitmap)</strong></code></td>
+    <td><code><strong>bmpread("some.bmp", 0, &amp;bitmap)</strong></code></td>
 </tr>
 <tr>
     <td><code>glTexImage2D(GL_TEXTURE_2D, 0, 3, <strong>img-&gt;sizeX</strong>,
@@ -137,7 +136,7 @@ Differences in each line are <strong>strong</strong>.
 </tr>
 <tr>
     <td><code><strong>free(img-&gt;data); free(img);</strong></code></td>
-    <td><code><strong>bmpread_FreeBitmap(&amp;bitmap);</strong></code></td>
+    <td><code><strong>bmpread_free(&amp;bitmap);</strong></code></td>
 
 </tr>
 </table>
@@ -160,7 +159,7 @@ if(!img)
 }
 
 </code></pre></td>
-    <td><pre><code>if(!bmpread_LoadBitmap("some.bmp", 0, &amp;bitmap))
+    <td><pre><code>if(!bmpread("some.bmp", 0, &amp;bitmap))
 {
    //error
 }

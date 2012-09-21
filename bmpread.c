@@ -110,7 +110,7 @@ static void _bmp_FreeContext(_bmp_read_context * p_ctx, int leave_rgb_data);
 
 
 /* see header for details */
-int bmpread_LoadBitmap(const char * bmp_file, int flags, bmpread_t * p_bmp_out)
+int bmpread(const char * bmp_file, int flags, bmpread_t * p_bmp_out)
 {
    int success = 0; /* we haven't succeeded yet */
 
@@ -159,7 +159,7 @@ int bmpread_LoadBitmap(const char * bmp_file, int flags, bmpread_t * p_bmp_out)
 }
 
 /* see header for details */
-void bmpread_FreeBitmap(bmpread_t * p_bmp)
+void bmpread_free(bmpread_t * p_bmp)
 {
    if(p_bmp) /* if valid */
    {
