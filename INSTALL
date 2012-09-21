@@ -1,0 +1,4 @@
+There's no predefined install (or even build) target.  To use, I recommend
+dropping bmpread.c and .h into your project and including them in your build
+process.  Or, if you're feeling feisty, you can make a .so out of them.  It's
+whatevs!
