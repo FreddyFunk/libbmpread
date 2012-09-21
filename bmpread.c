@@ -1,5 +1,5 @@
 /******************************************************************************
-* glbmp - a library for loading Windows & OS/2 bitmaps for use in OpenGL      *
+* libbmpread - a library for loading Windows & OS/2 bitmaps for use in OpenGL *
 * Copyright (C) 2005, 2012 Charles Lindsay <chaz@chazomatic.us>               *
 *                                                                             *
 *  This software is provided 'as-is', without any express or implied          *
@@ -27,7 +27,7 @@
 ******************************************************************************/
 
 
-#include "glbmp.h"
+#include "bmpread.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -51,9 +51,9 @@
  || defined(_WIN32) || defined(WIN32) || defined(_WIN64)           \
  || defined(__arm__) || (defined(__mips__) && defined(__MIPSEL__)) \
  || defined(__SYMBIAN32__) || defined(__LITTLE_ENDIAN__))
-#undef _GLBMP_BYTESWAP   //undef to do no swapping
+#undef _BMPREAD_BYTESWAP   //undef to do no swapping
 #else
-#define _GLBMP_BYTESWAP  //tell glbmp to swap bytes
+#define _BMPREAD_BYTESWAP  //tell bmpread to swap bytes
 #endif
 
 
@@ -110,7 +110,7 @@ static void _bmp_FreeContext(_bmp_read_context * p_ctx, int leave_rgb_data);
 
 
 /* see header for details */
-int glbmp_LoadBitmap(const char * bmp_file, int flags, glbmp_t * p_bmp_out)
+int bmpread_LoadBitmap(const char * bmp_file, int flags, bmpread_t * p_bmp_out)
 {
    int success = 0; /* we haven't succeeded yet */
 
@@ -123,7 +123,7 @@ int glbmp_LoadBitmap(const char * bmp_file, int flags, glbmp_t * p_bmp_out)
       if(!p_bmp_out)                               break;
 
       /* zero it if it exists */
-      memset(p_bmp_out, 0, sizeof(glbmp_t));
+      memset(p_bmp_out, 0, sizeof(bmpread_t));
 
       /* check for existence of filename */
       if(!bmp_file)                                break;
@@ -159,7 +159,7 @@ int glbmp_LoadBitmap(const char * bmp_file, int flags, glbmp_t * p_bmp_out)
 }
 
 /* see header for details */
-void glbmp_FreeBitmap(glbmp_t * p_bmp)
+void bmpread_FreeBitmap(bmpread_t * p_bmp)
 {
    if(p_bmp) /* if valid */
    {
@@ -168,7 +168,7 @@ void glbmp_FreeBitmap(glbmp_t * p_bmp)
          free(p_bmp->rgb_data);
 
       /* zero it */
-      memset(p_bmp, 0, sizeof(glbmp_t));
+      memset(p_bmp, 0, sizeof(bmpread_t));
    }
 }
 
@@ -178,7 +178,7 @@ void glbmp_FreeBitmap(glbmp_t * p_bmp)
  * is little-endian).  They both accept a 16 or 32 bit integer and spit back
  * out a byte-swapped representation of that integer.  Word.
  */
-#ifdef _GLBMP_BYTESWAP
+#ifdef _BMPREAD_BYTESWAP
 static uint32_t _bmp_Swap32(uint32_t x)
 {
    return((x >> 24) | ((x >> 8) & 0xff00) | ((x << 8) & 0xff0000) | (x << 24));
@@ -211,7 +211,7 @@ static int _bmp_ReadHeader(_bmp_read_context * p_ctx)
       if(fread(&p_ctx->header, sizeof(_bmp_header), 1, p_ctx->fp) != 1) break;
 
       /* swap bytes for other architectures */
-#ifdef _GLBMP_BYTESWAP
+#ifdef _BMPREAD_BYTESWAP
       p_ctx->header.file_size   = _bmp_Swap32(p_ctx->header.file_size);
       p_ctx->header.data_offset = _bmp_Swap32(p_ctx->header.data_offset);
 #endif
@@ -287,7 +287,7 @@ static int _bmp_ReadInfo(_bmp_read_context * p_ctx, int flags)
       if(fread(&p_ctx->info, sizeof(_bmp_info), 1, p_ctx->fp) != 1)      break;
 
       /* swap bytes for other architectures */
-#ifdef _GLBMP_BYTESWAP
+#ifdef _BMPREAD_BYTESWAP
       p_ctx->info.info_size   =     _bmp_Swap32(p_ctx->info.info_size);
       p_ctx->info.width  = (int32_t)_bmp_Swap32((uint32_t)p_ctx->info.width);
       p_ctx->info.height = (int32_t)_bmp_Swap32((uint32_t)p_ctx->info.height);
@@ -316,12 +316,12 @@ static int _bmp_ReadInfo(_bmp_read_context * p_ctx, int flags)
                                                 p_ctx->info.bits);
 
       /* get length of scan line in output buffer (either aligned or not) */
-      p_ctx->rgb_line_len = ((flags & GLBMP_BYTE_ALIGN) ?
+      p_ctx->rgb_line_len = ((flags & BMPREAD_BYTE_ALIGN) ?
                              (int)p_ctx->info.width * 3 :
                              _bmp_GetLineLength(p_ctx->info.width, 24));
 
       /* if we're only allowing power of two sized images */
-      if(!(flags & GLBMP_ANY_SIZE))
+      if(!(flags & BMPREAD_ANY_SIZE))
       {
          /* make sure width and height are both powers of two */
          if(!_bmp_IsPowerOf2((int)p_ctx->info.width))                    break;
@@ -492,7 +492,7 @@ static int _bmp_Decode(_bmp_read_context * p_ctx, int flags)
    */
 
    /* if we don't need to reverse the order of scan lines */
-   if(!(p_ctx->info.height < 0) == !(flags & GLBMP_TOP_DOWN))
+   if(!(p_ctx->info.height < 0) == !(flags & BMPREAD_TOP_DOWN))
    {
       /* start our decoder at the beginning of output buffer */
       p_rgb      = p_ctx->rgb_data;

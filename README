@@ -1,19 +1,19 @@
-glbmp
-=====
+libbmpread
+==========
 
-glbmp is an extremely portable, simple, robust, and lightweight replacement for
-the auxDIBImageLoad and related device-independent bitmap (.bmp) image loader
-functions of glaux, but it goes far beyond just that. At the basic level, it's
-a flexible bitmap loader and decoder that can be used anywhere you need to get
-the color data of a .bmp file.
+libbmpread is an extremely portable, simple, robust, and lightweight
+replacement for the auxDIBImageLoad and related device-independent bitmap
+(.bmp) image loader functions of glaux, but it goes far beyond just that. At
+the basic level, it's a flexible bitmap loader and decoder that can be used
+anywhere you need to get the color data of a .bmp file.
 
-Why create glbmp when it's just duplicating existing functionality?
+Why create libbmpread when it's just duplicating existing functionality?
   - glaux.h and glaux.lib (or libglaux.a) no longer exist on most systems: a
     new solution is needed.
 So, then why not use an existing image loading library?
   - There aren't very many full-featured and portable image libraries that are
-    lightweight enough to be useful (glbmp is two files: one .c and one .h that
-    can be easily dropped into any existing project).
+    lightweight enough to be useful (libbmpread is two files: one .c and one .h
+    that can be easily dropped into any existing project).
 But why bitmaps?
   - Bitmaps are fairly common in simple games (that is, games where a drop-in
     image loader is called for) and easy to work with.
@@ -33,25 +33,25 @@ Features
 
 More Info
 ---------
-For a quick tutorial on how to use glbmp, see glbmp-tutorial.html in this
+For a quick tutorial on how to use libbmpread, see tutorial.html in this
 distribution.
 
-Visit the glbmp webpage at http://chaoslizard.sourceforge.net/glbmp/ for
+Visit the libbmpread webpage at http://chaoslizard.sourceforge.net/glbmp/ for
 updates, news, etc.
 
 Email me at charles [at] chaoslizard [dot] org with questions, bug reports,
 etc.
 
-To see glbmp in action download my cross-platform Asteroids clone from
+To see libbmpread in action download my cross-platform Asteroids clone from
 http://chaoslizard.sourceforge.net/asteroid/ -- all textures (all one of 'em)
-are loaded using glbmp.
+are loaded using libbmpread.
 
 
 Changes
 -------
 v1.1 (2005 Mar. 15):
- - Added byte-swapping code for big-endian machines (glbmp will now work on
-   Macs!).  Thanks to Micah Tomblin for testing this for me.
+ - Added byte-swapping code for big-endian machines (libbmpread will now work
+   on Macs!).  Thanks to Micah Tomblin for testing this for me.
 
 v1.0 (2005 Mar. 14):
  - Initial version, supporting 1-, 4-, 8- and 24-bit uncompressed files.

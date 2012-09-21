@@ -1,5 +1,5 @@
 /******************************************************************************
-* glbmp - a library for loading Windows & OS/2 bitmaps for use in OpenGL      *
+* libbmpread - a library for loading Windows & OS/2 bitmaps for use in OpenGL *
 * Copyright (C) 2005, 2012 Charles Lindsay <chaz@chazomatic.us>               *
 *                                                                             *
 *  This software is provided 'as-is', without any express or implied          *
@@ -28,7 +28,7 @@
 #include <GL/gl.h>
 #include <GL/glut.h>
 
-#include "glbmp.h"
+#include "bmpread.h"
 
 
 static void DrawBitmap(void);
@@ -39,9 +39,9 @@ static GLuint tex = 0;
 
 int main(int argc, char * argv[])
 {
-   glbmp_t bmp;
+   bmpread_t bmp;
 
-   puts("glbmp-test - test utility for glbmp");
+   puts("bmpread-test - test utility for bmpread");
    puts("Copyright (C) 2005, 2012 Charles Lindsay <chaz@chazomatic.us>");
    puts("This program is released under the zlib license (see COPYING) and");
    puts("comes with absolutely no warranty whatsoever.");
@@ -49,15 +49,15 @@ int main(int argc, char * argv[])
 
    if(argc < 2)
    {
-      puts("Usage: glbmp-test <bmpfile> [gl_options]");
-      puts("glbmp-test loads <bmpfile> and attempts to display it on an OpenGL quad,");
+      puts("Usage: bmpread-test <bmpfile> [gl_options]");
+      puts("bmpread-test loads <bmpfile> and attempts to display it on an OpenGL quad,");
       puts("stretched across the entire window, using GLUT.  If the bitmap looks correct,");
-      puts("glbmp works!  You can pass options to GLUT using [gl_options].");
+      puts("bmpread works!  You can pass options to GLUT using [gl_options].");
       return 0;
    }
 
    printf("Loading %s...", argv[1]);
-   if(!glbmp_LoadBitmap(argv[1], 0, &bmp))
+   if(!bmpread_LoadBitmap(argv[1], 0, &bmp))
    {
       puts("error!");
       return 1;
@@ -96,7 +96,7 @@ int main(int argc, char * argv[])
    }
    //*/
 
-   glbmp_FreeBitmap(&bmp);
+   bmpread_FreeBitmap(&bmp);
 
    glutPostRedisplay();
    glutMainLoop();
