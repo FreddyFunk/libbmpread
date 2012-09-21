@@ -1,6 +1,6 @@
 /******************************************************************************
 * glbmp - a library for loading Windows & OS/2 bitmaps for use in OpenGL      *
-* Copyright (C) 2005 Charles Lindsay                                          *
+* Copyright (C) 2005, 2012 Charles Lindsay <chaz@chazomatic.us>               *
 *                                                                             *
 *  This software is provided 'as-is', without any express or implied          *
 *  warranty.  In no event will the authors be held liable for any damages     *
@@ -17,9 +17,6 @@
 *  2. Altered source versions must be plainly marked as such, and must not be *
 *     misrepresented as being the original software.                          *
 *  3. This notice may not be removed or altered from any source distribution. *
-*                                                                             *
-* The "official" glbmp webpage is: http://chaoslizard.sourceforge.net/glbmp/  *
-* Contact the author at: charles [at] chaoslizard [dot] org                   *
 ******************************************************************************/
 
 
