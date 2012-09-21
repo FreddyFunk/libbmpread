@@ -41,9 +41,9 @@ int main(int argc, char * argv[])
 {
    glbmp_t bmp;
 
-   puts("glbmp-test - test utility for glbmp (http://chaoslizard.sourceforge.net/glbmp/)");
-   puts("Copyright (C) 2005 Charles Lindsay (charles [at] chaoslizard [dot] org)");
-   puts("This program is released under the zlib license (see glbmp-license.txt) and");
+   puts("glbmp-test - test utility for glbmp");
+   puts("Copyright (C) 2005, 2012 Charles Lindsay <chaz@chazomatic.us>");
+   puts("This program is released under the zlib license (see COPYING) and");
    puts("comes with absolutely no warranty whatsoever.");
    puts("");
 
