@@ -517,9 +517,10 @@ static int _bmp_Decode(_bmp_read_context * p_ctx, int flags)
 
    if(decoder) /* if we found a decoder */
    {
-      /* iterate until we reach the end of our buffers, or we have a read error */
-      while(   p_rgb != p_rgb_end
-            && fread(p_ctx->file_data, p_ctx->file_line_len, 1, p_ctx->fp) == 1)
+      /* iterate until we reach the end of our buffers, or we have a read */
+      /* error                                                            */
+      while(p_rgb != p_rgb_end &&
+            fread(p_ctx->file_data, p_ctx->file_line_len, 1, p_ctx->fp) == 1)
       {
          /* decode the line */
          decoder(p_rgb, p_line_end, p_ctx->file_data, p_ctx->palette);
