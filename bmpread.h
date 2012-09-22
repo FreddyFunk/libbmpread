@@ -73,10 +73,10 @@ typedef struct bmpread_t
  *
  * Notes:
  * Standard behavior is for bmpread to return rgb_data starting with the last
- * scan line and ending with the first (this is apparently how OpenGL expects
- * data).  If you're using the data for something else and want normal top-down
- * data, specify BMPREAD_TOP_DOWN in flags.  Also, bmpread will normally fail
- * if the bitmap has width or height that isn't a power of 2.  To ignore this
+ * scan line and ending with the first (this is how OpenGL expects data).  If
+ * you're using the data for something else and want normal top-down data,
+ * specify BMPREAD_TOP_DOWN in flags.  Also, bmpread will normally fail if the
+ * bitmap has width or height that isn't a power of 2.  To ignore this
  * restriction (though your bitmap may not render in OpenGL), specify
  * BMPREAD_ANY_SIZE in flags.  Finally, bmpread will DWORD align the scan lines
  * by default (only very small files need padding, unless you specify
@@ -93,7 +93,7 @@ int bmpread(const char * bmp_file, int flags, bmpread_t * p_bmp_out);
  * OpenGL).
  *
  * Inputs:
- * p_bmp - The pointer returned by bmpread.
+ * p_bmp - The pointer you previously passed to a successful call to bmpread.
  *
  * Returns:
  * void
