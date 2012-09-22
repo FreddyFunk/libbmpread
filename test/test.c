@@ -1,5 +1,5 @@
 /******************************************************************************
-* libbmpread - a library for loading Windows & OS/2 bitmaps for use in OpenGL *
+* libbmpread - tiny, fast bitmap (.bmp) image file loader                     *
 * Copyright (C) 2005, 2012 Charles Lindsay <chaz@chazomatic.us>               *
 *                                                                             *
 *  This software is provided 'as-is', without any express or implied          *

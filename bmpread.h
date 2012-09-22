@@ -1,5 +1,5 @@
 /******************************************************************************
-* libbmpread - a library for loading Windows & OS/2 bitmaps for use in OpenGL *
+* libbmpread - tiny, fast bitmap (.bmp) image file loader                     *
 * Copyright (C) 2005, 2012 Charles Lindsay <chaz@chazomatic.us>               *
 *                                                                             *
 *  This software is provided 'as-is', without any express or implied          *
@@ -22,7 +22,7 @@
 
 /* bmpread.h
  * version 1.1+git
- * 2012-09-21
+ * 2012-09-22
  */
 
 
@@ -37,34 +37,44 @@ extern "C"
 
 /* bmpread_t
  *
- * The struct returned by bmpread.  It has enough information to enable you to
- * use it in OpenGL texture creation.
+ * The struct filled by bmpread.  Holds information about the image's pixels.
  */
 typedef struct bmpread_t
 {
-   int width;                /* width of bitmap                              */
-   int height;               /* height of bitmap                             */
+   int width;  /* width in pixels */
+   int height; /* height in pixels */
 
-   unsigned char * rgb_data; /* pointer to buffer, width*height*3 in size,
-                                holding RGB bitmap data                      */
+   /* A buffer holding the pixel data of the image in RGB order.  Each pixel
+    * spans three bytes: the red, green, and blue color components in that
+    * order.  The pixels are ordered left to right, bottom line first (unless
+    * you passed BMPREAD_TOP_DOWN, in which case the top line is first).  If
+    * the image has a width that's not divisible by 4, this buffer is padded
+    * with unused bytes at the end of each line such that the line width in
+    * pixels is divisible by 4 (this behavior can be turned off by passing
+    * BMPREAD_BYTE_ALIGN).
+    */
+   unsigned char * rgb_data;
+
 } bmpread_t;
 
 
-/* outputs rgb_data as top down (default is bottom first)  */
+/* Flags for bmpread.  Combine with bitwise or.
+ */
+
+/* output rgb_data as top line first (default is bottom line first) */
 #define BMPREAD_TOP_DOWN   1
 
-/* performs no dword alignment (default aligns lines on dword boundaries) */
+/* don't pad lines so the width is divisible by 4 (default does pad) */
 #define BMPREAD_BYTE_ALIGN 2
 
-/* allows loading of any size bitmap (default is bitmaps must be 2^n x 2^m) */
+/* allow loading of any size bitmap (default is bitmaps must be 2^n x 2^m) */
 #define BMPREAD_ANY_SIZE   4
 
 
 /* bmpread
  *
- * Loads the specified bitmap file from disk and converts the data to a format
- * usable by OpenGL.  The bitmap file must be 1, 4, 8, or 24 bits, and not
- * compressed (this means NO RLE (yet)).
+ * Loads the specified bitmap file from disk and fills out a bmpread_t struct
+ * with data about it.
  *
  * Inputs:
  * bmp_file - The filename of the bitmap file to load.
@@ -74,20 +84,24 @@ typedef struct bmpread_t
  *
  * Returns:
  * 0 if there's an error (file doesn't exist or is invalid, i/o error, etc.),
- * in which case p_bmp_out isn't guaranteed to hold anything in particular, or
- * 1 if the file loaded ok.
+ * or nonzero if the file loaded ok.
  *
  * Notes:
- * Standard behavior is for bmpread to return rgb_data starting with the last
- * scan line and ending with the first (this is how OpenGL expects data).  If
- * you're using the data for something else and want normal top-down data,
- * specify BMPREAD_TOP_DOWN in flags.  Also, bmpread will normally fail if the
- * bitmap has width or height that isn't a power of 2.  To ignore this
- * restriction (though your bitmap may not render in OpenGL), specify
- * BMPREAD_ANY_SIZE in flags.  Finally, bmpread will DWORD align the scan lines
- * by default (only very small files need padding, unless you specify
- * BMPREAD_ANY_SIZE), but again if you need byte-packed data, specify
- * BMPREAD_BYTE_ALIGN in flags (may break OpenGL though).
+ * The file must be a Windows format bitmap file, 1, 4, 8, or 24 bits, and not
+ * compressed (no RLE).
+ *
+ * Default behavior is for bmpread to return rgb_data in a format directly
+ * usable by OpenGL texture functions (e.g. glTexImage2D, format GL_RGB, type
+ * GL_UNSIGNED_BYTE).  This implies a few oddities:
+ *  * Lines are ordered bottom-first.  To return data starting with the top
+ *    line like you might otherwise expect, pass BMPREAD_TOP_DOWN in flags.
+ *  * Lines are padded to be divisible by 4.  To return data with no padding,
+ *    pass BMPREAD_BYTE_ALIGN in flags.
+ *  * Images with width or height that aren't an integer power of 2 will fail
+ *    to load.  To allow loading images of arbitrary size, pass
+ *    BMPREAD_ANY_SIZE in flags.
+ * Note that passing any flags may cause the image to be unusable as an OpenGL
+ * texture, which may or may not matter to you.
  */
 int bmpread(const char * bmp_file, int flags, bmpread_t * p_bmp_out);
 
@@ -95,11 +109,11 @@ int bmpread(const char * bmp_file, int flags, bmpread_t * p_bmp_out);
 /* bmpread_free
  *
  * Frees memory allocated during bmpread.  Call bmpread_free when you are done
- * using the bmpread_t struct (i.e., after you have passed the data on to
+ * using the bmpread_t struct (e.g. after you have passed the data on to
  * OpenGL).
  *
  * Inputs:
- * p_bmp - The pointer you previously passed to a successful call to bmpread.
+ * p_bmp - The pointer you previously passed to bmpread.
  *
  * Returns:
  * void
