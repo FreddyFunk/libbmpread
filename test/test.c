@@ -41,18 +41,16 @@ int main(int argc, char * argv[])
 {
    bmpread_t bmp;
 
-   puts("bmpread-test - test utility for bmpread");
+   puts("Test utility for libbmpread");
    puts("Copyright (C) 2005, 2012 Charles Lindsay <chaz@chazomatic.us>");
-   puts("This program is released under the zlib license (see COPYING) and");
-   puts("comes with absolutely no warranty whatsoever.");
    puts("");
 
    if(argc < 2)
    {
-      puts("Usage: bmpread-test <bmpfile> [gl_options]");
-      puts("bmpread-test loads <bmpfile> and attempts to display it on an OpenGL quad,");
-      puts("stretched across the entire window, using GLUT.  If the bitmap looks correct,");
-      puts("bmpread works!  You can pass options to GLUT using [gl_options].");
+      puts("Usage: test <bmpfile> [glut_options]");
+      puts("Loads <bmpfile> and attempts to display it on an OpenGL quad, stretched across");
+      puts("the entire window, using GLUT.  If the bitmap looks correct, libbmpread works");
+      puts("correctly!  You can pass options to GLUT using [glut_options].");
       return 0;
    }
 
@@ -86,16 +84,6 @@ int main(int argc, char * argv[])
                 GL_RGB, GL_UNSIGNED_BYTE, bmp.rgb_data);
    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-
-   /*
-   {
-      FILE * fp = fopen("dump.dat", "wb");
-      fwrite(&bmp.width, sizeof(int), 1, fp);
-      fwrite(&bmp.height, sizeof(int), 1, fp);
-      fwrite(bmp.rgb_data, bmp.width * bmp.height * 3, 1, fp);
-      fclose(fp);
-   }
-   //*/
 
    bmpread_free(&bmp);
 

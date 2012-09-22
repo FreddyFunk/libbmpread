@@ -288,7 +288,7 @@ static int _bmp_ReadInfo(_bmp_read_context * p_ctx, int flags)
       /* handle palettes */
       if(p_ctx->info.bits <= 8)
       {
-         int colors = 1 << p_ctx->info.bits;
+         unsigned int colors = 1 << p_ctx->info.bits;
 
          if(!(p_ctx->palette = (_bmp_palette_entry *)
               malloc(colors * sizeof(_bmp_palette_entry))))             break;
@@ -335,6 +335,9 @@ static void _bmp_Decode24(uint8_t * p_rgb, uint8_t * p_rgb_end,
       *p_rgb++ = *(p_file++    );
       *p_rgb++ = *(p_file++ - 2);
    }
+
+   /* palette is unused; this prevents a pedantic warning */
+   palette = palette;
 }
 
 /* _bmp_Decode8
