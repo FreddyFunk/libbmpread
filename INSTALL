@@ -1,4 +1,4 @@
-There's no predefined install (or even build) target.  To use, I recommend
-dropping bmpread.c and .h into your project and including them in your build
-process.  Or, if you're feeling feisty, you can make a .so out of them.  It's
-whatevs!
+libbmpread isn't set up to be built into a shared library.  I recommend simply
+copying bmpread.c and .h into your project and adding them to your build.
+Alternately, I suppose you could build a library out of them if you want to,
+but I'll leave that trivial exercise up to you.
