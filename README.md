@@ -54,5 +54,3 @@ texture from a bitmap file on disk:
     }
 
 Enjoy!
-
- -- Charles D. Lindsay, Esq.
