@@ -337,7 +337,7 @@ static void _bmp_Decode24(uint8_t * p_rgb, uint8_t * p_rgb_end,
    }
 
    /* palette is unused; this prevents a pedantic warning */
-   palette = palette;
+   (void)palette;
 }
 
 /* _bmp_Decode8
