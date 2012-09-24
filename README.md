@@ -1,18 +1,18 @@
 libbmpread
 ==========
-
 libbmpread is a tiny, fast bitmap (.bmp) image file loader, written from
 scratch in portable ANSI C.  Its default behavior is compatible with OpenGL
 texture functions, making it ideal for use in simple games.  It handles
 uncompressed monochrome, 16- and 256-color, and 24-bit bitmap files of any size
 (no RLE support yet).
 
+<https://github.com/chazomaticus/libbmpread>
+
+Documentation
+-------------
 See `bmpread.h` for thorough documentation of the interface.
 
-Sample Code
------------
-
-Here's a snippet showing how libbmpread might be used to create an OpenGL
+Here's a code snippet showing how libbmpread might be used to create an OpenGL
 texture from a bitmap file on disk:
 
     #include <stdio.h>
@@ -52,5 +52,6 @@ texture from a bitmap file on disk:
         GLuint tex1 = LoadTexture("texture1.bmp");
         // ...
     }
+
 
 Enjoy!
