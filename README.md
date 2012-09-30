@@ -15,43 +15,45 @@ See `bmpread.h` for thorough documentation of the interface.
 Here's a code snippet showing how libbmpread might be used to create an OpenGL
 texture from a bitmap file on disk:
 
-    #include <stdio.h>
-    #include <GL/gl.h>
-    #include "bmpread.h"
+```c
+#include <stdio.h>
+#include <GL/gl.h>
+#include "bmpread.h"
 
-    /* Loads the specified bitmap file from disk and copies it into an OpenGL
-     * texture.  Returns the GLuint representing the texture.  Calls exit(1) if
-     * the bitmap fails to load.
-     */
-    GLuint LoadTexture(const char * bitmap_file)
+/* Loads the specified bitmap file from disk and copies it into an OpenGL
+ * texture.  Returns the GLuint representing the texture.  Calls exit(1) if
+ * the bitmap fails to load.
+ */
+GLuint LoadTexture(const char * bitmap_file)
+{
+    GLuint texture = 0;
+    bmpread_t bitmap;
+
+    if(!bmpread(bitmap_file, 0, &bitmap))
     {
-        GLuint texture = 0;
-        bmpread_t bitmap;
-
-        if(!bmpread(bitmap_file, 0, &bitmap))
-        {
-            fprintf(stderr, "%s: error loading bitmap file\n", bitmap_file);
-            exit(1);
-        }
-
-        glGenTextures(1, &texture);
-        glBindTexture(GL_TEXTURE_2D, texture);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-
-        glTexImage2D(GL_TEXTURE_2D, 0, 3, bitmap.width, bitmap.height, 0,
-                     GL_RGB, GL_UNSIGNED_BYTE, bitmap.rgb_data);
-
-        bmpread_free(&bitmap);
-
-        return texture;
+        fprintf(stderr, "%s: error loading bitmap file\n", bitmap_file);
+        exit(1);
     }
 
-    void SomeInitFunction(void)
-    {
-        GLuint tex1 = LoadTexture("texture1.bmp");
-        // ...
-    }
+    glGenTextures(1, &texture);
+    glBindTexture(GL_TEXTURE_2D, texture);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+    glTexImage2D(GL_TEXTURE_2D, 0, 3, bitmap.width, bitmap.height, 0,
+                 GL_RGB, GL_UNSIGNED_BYTE, bitmap.rgb_data);
+
+    bmpread_free(&bitmap);
+
+    return texture;
+}
+
+void SomeInitFunction(void)
+{
+    GLuint tex1 = LoadTexture("texture1.bmp");
+    // ...
+}
+```
 
 
 Enjoy!
