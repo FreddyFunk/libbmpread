@@ -1,5 +1,6 @@
 /******************************************************************************
 * libbmpread - tiny, fast bitmap (.bmp) image file loader                     *
+*              <https://github.com/chazomaticus/libbmpread>                   *
 * Copyright (C) 2005, 2012 Charles Lindsay <chaz@chazomatic.us>               *
 *                                                                             *
 *  This software is provided 'as-is', without any express or implied          *
