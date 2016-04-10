@@ -33,16 +33,12 @@
 #include <stdlib.h>
 #include <string.h>
 
-/* MSVC++ and some others don't have stdint.h.  These typedefs USUALLY work. */
-/* You'll have to define NO_STDINT_H yourself, I'm guessing.                 */
-#if(defined(_MSC_VER) || defined(NO_STDINT_H))
-   typedef unsigned char  uint8_t;  /* must be 8 bits, unsigned */
-   typedef unsigned short uint16_t; /* must be 16 bits, unsigned */
-   typedef unsigned long  uint32_t; /* must be 32 bits, unsigned */
-   typedef          long  int32_t;  /* must be 32 bits, signed */
-#else
-#  include <stdint.h> /* most modern compilers have stdint.h */
-#endif
+/* If your compiler doesn't come with stdint.h, which is technically a C99   */
+/* feature, see <http://stackoverflow.com/q/126279>.  There are 3rd party    */
+/* solutions to this problem, which you should be able to find with a little */
+/* searching.  Alternately, just define the following types yourself:        */
+/* uint8_t, uint16_t, uint32_t, and int32_t.                                 */
+#include <stdint.h>
 
 /* Hack to determine endianness of architecture, to byte swap if necessary.  */
 /* If my list is incomplete, just define __LITTLE_ENDIAN__ or don't.         */
