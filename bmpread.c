@@ -40,26 +40,100 @@
 /* uint8_t, uint16_t, uint32_t, and int32_t.                                 */
 #include <stdint.h>
 
-/* Hack to determine endianness of architecture, to byte swap if necessary.  */
-/* If my list is incomplete, just define __LITTLE_ENDIAN__ or don't.         */
-#if(defined(__i386__) || defined(__i386) || defined(__x86_64__)    \
- || defined(__alpha__) || defined(__alpha) || defined(__ia64__)    \
- || defined(_WIN32) || defined(WIN32) || defined(_WIN64)           \
- || defined(__arm__) || (defined(__mips__) && defined(__MIPSEL__)) \
- || defined(__SYMBIAN32__) || defined(__LITTLE_ENDIAN__))
-#undef _BMPREAD_BYTESWAP   /* undef to do no swapping */
-#else
-#define _BMPREAD_BYTESWAP  /* tell bmpread to swap bytes */
-#endif
 
-
-typedef struct _bmp_header /* first few bytes of file, after magic word "BM" */
+/* Reads up to 4 little-endian bytes from fp and stores the result in the
+ * uint32_t pointed to by dest in the host's byte order.  Returns 0 on EOF or
+ * nonzero on success.
+ */
+static int _bmp_ReadLittleBytes(uint32_t * dest, int bytes, FILE * fp)
 {
+   int shift = 0;
+
+   *dest = 0;
+
+   while(bytes--)
+   {
+      int byte;
+      if((byte = fgetc(fp)) == EOF) return 0;
+
+      *dest += (uint32_t)byte << shift;
+      shift += 8; /* assume CHAR_BIT of 8, because other code here does */
+   }
+
+   return 1;
+}
+
+/* Reads a little-endian uint32_t from fp and stores the result in *dest in the
+ * host's byte order.  Returns 0 on EOF or nonzero on success.
+ */
+#define _bmp_ReadLittleUint32(dest, fp) _bmp_ReadLittleBytes(dest, 4, fp)
+
+/* Reads a little-endian int32_t from fp and stores the result in *dest in the
+ * host's byte order.  Returns 0 on EOF or nonzero on success.
+ */
+static int _bmp_ReadLittleInt32(int32_t * dest, FILE * fp)
+{
+   /* I *believe* casting unsigned -> signed is implementation-defined when the
+    * unsigned value is out of range for the signed type, which would be the
+    * case for any negative number we've just read out of the file into a uint.
+    * This is a portable way to "reinterpret" the bits as signed without
+    * running into undefined/implementation-defined behavior.  I think.
+    */
+   union _bmp_int32_signedness_swap
+   {
+      uint32_t uint32;
+      int32_t  int32;
+
+   } t;
+
+   if(!_bmp_ReadLittleBytes(&t.uint32, 4, fp)) return 0;
+   *dest = t.int32;
+   return 1;
+}
+
+/* Reads a little-endian uint16_t from fp and stores the result in *dest in the
+ * host's byte order.  Returns 0 on EOF or nonzero n success.
+ */
+static int _bmp_ReadLittleUint16(uint16_t * dest, FILE * fp)
+{
+   uint32_t t;
+   if(!_bmp_ReadLittleBytes(&t, 2, fp)) return 0;
+   *dest = (uint16_t)t;
+   return 1;
+}
+
+/* Reads a uint8_t from fp and stores the result in *dest.  Returns 0 on EOF or
+ * nonzero on success.
+ */
+static int _bmp_ReadUint8(uint8_t * dest, FILE * fp)
+{
+   int byte;
+   if((byte = fgetc(fp)) == EOF) return 0;
+   *dest = (uint8_t)byte;
+   return 1;
+}
+
+typedef struct _bmp_header /* bitmap file header */
+{
+   uint8_t  magic[2];    /* magic bytes 'B' and 'M' */
    uint32_t file_size;   /* size of whole file */
    uint32_t unused;      /* should be 0 */
    uint32_t data_offset; /* offset from beginning of file to bitmap data */
 
 } _bmp_header;
+
+/* Reads a bitmap header from fp into header.  Returns 0 on EOF or nonzero on
+ * success.
+ */
+static int _bmp_ReadHeader(_bmp_header * header, FILE * fp)
+{
+   if(!_bmp_ReadUint8(       &header->magic[0],    fp)) return 0;
+   if(!_bmp_ReadUint8(       &header->magic[1],    fp)) return 0;
+   if(!_bmp_ReadLittleUint32(&header->file_size,   fp)) return 0;
+   if(!_bmp_ReadLittleUint32(&header->unused,      fp)) return 0;
+   if(!_bmp_ReadLittleUint32(&header->data_offset, fp)) return 0;
+   return 1;
+}
 
 typedef struct _bmp_info /* immediately follows header; describes image */
 {
@@ -73,6 +147,20 @@ typedef struct _bmp_info /* immediately follows header; describes image */
 
 } _bmp_info;
 
+/* Reads bitmap metadata from fp into info.  Returns 0 on EOF or nonzero on
+ * success.
+ */
+static int _bmp_ReadInfo(_bmp_info * info, FILE * fp)
+{
+   if(!_bmp_ReadLittleUint32(&info->info_size,   fp)) return 0;
+   if(!_bmp_ReadLittleInt32( &info->width,       fp)) return 0;
+   if(!_bmp_ReadLittleInt32( &info->height,      fp)) return 0;
+   if(!_bmp_ReadLittleUint16(&info->planes,      fp)) return 0;
+   if(!_bmp_ReadLittleUint16(&info->bits,        fp)) return 0;
+   if(!_bmp_ReadLittleUint32(&info->compression, fp)) return 0;
+   return 1;
+}
+
 typedef struct _bmp_palette_entry /* a single color in the palette */
 {
    uint8_t blue;   /* blue comes first, for some reason */
@@ -81,6 +169,34 @@ typedef struct _bmp_palette_entry /* a single color in the palette */
    uint8_t unused; /* one unused byte.  Great. */
 
 } _bmp_palette_entry;
+
+/* Reads the given number of colors from fp into the palette array.  Returns 0
+ * on EOF or nonzero on success.
+ */
+static int _bmp_ReadPalette(_bmp_palette_entry * palette, int colors,
+                            FILE * fp)
+{
+   /* This is probably the least efficient way to go about this.  But, it's the
+    * easiest, without going into implementation-defined behavior or allocating
+    * a chunk of memory.  The hope is that the compiler would optimize a bunch
+    * of this away into something like a nice long memcpy (from the stdio
+    * buffer, I presume).
+    *
+    * If this is too slow, you could still avoid implementation-defined
+    * behavior by allocating space for a buffer (either heap or stack if you
+    * don't want to malloc) and doing one long fread, then copying bytes
+    * manually.
+    */
+   int i;
+   for(i = 0; i < colors; i++)
+   {
+      if(!_bmp_ReadUint8(&palette[i].blue,   fp)) return 0;
+      if(!_bmp_ReadUint8(&palette[i].green,  fp)) return 0;
+      if(!_bmp_ReadUint8(&palette[i].red,    fp)) return 0;
+      if(!_bmp_ReadUint8(&palette[i].unused, fp)) return 0;
+   }
+   return 1;
+}
 
 typedef struct _bmp_read_context /* data passed around between read ops */
 {
@@ -97,9 +213,7 @@ typedef struct _bmp_read_context /* data passed around between read ops */
 } _bmp_read_context;
 
 
-/* see implementations for details */
-static int _bmp_ReadHeader(_bmp_read_context * p_ctx);
-static int _bmp_ReadInfo(_bmp_read_context * p_ctx, int flags);
+static int _bmp_Validate(_bmp_read_context * p_ctx, int flags);
 static int _bmp_InitDecode(_bmp_read_context * p_ctx);
 static int _bmp_Decode(_bmp_read_context * p_ctx, int flags);
 static void _bmp_FreeContext(_bmp_read_context * p_ctx, int leave_rgb_data);
@@ -120,8 +234,7 @@ int bmpread(const char * bmp_file, int flags, bmpread_t * p_bmp_out)
       memset(p_bmp_out, 0, sizeof(bmpread_t));
 
       if(!(ctx.fp = fopen(bmp_file, "rb"))) break;
-      if(!_bmp_ReadHeader(&ctx))            break;
-      if(!_bmp_ReadInfo(&ctx, flags))       break;
+      if(!_bmp_Validate(&ctx, flags))       break;
       if(!_bmp_InitDecode(&ctx))            break;
       if(!_bmp_Decode(&ctx, flags))         break;
 
@@ -147,50 +260,6 @@ void bmpread_free(bmpread_t * p_bmp)
 
       memset(p_bmp, 0, sizeof(bmpread_t));
    }
-}
-
-/* _bmp_Swap32 and _bmp_Swap16
- *
- * Performs byte swapping on big-endian architectures (bmp native file format
- * is little-endian).  They both accept a 16 or 32 bit integer and spit back
- * out a byte-swapped representation of that integer.  Word.
- */
-#ifdef _BMPREAD_BYTESWAP
-static uint32_t _bmp_Swap32(uint32_t x)
-{
-   return((x >> 24) | ((x >> 8) & 0xff00) | ((x << 8) & 0xff0000) | (x << 24));
-}
-static uint16_t _bmp_Swap16(uint16_t x)
-{
-   return ((x >> 8) | (x << 8));
-}
-#endif
-
-/* _bmp_ReadHeader
- *
- * Reads the bitmap header from the file in the context object.  Assumes that
- * the file pointer is at the beginning of the file.  Returns 1 if it succeeds
- * or 0 if there's an error (invalid file).
- */
-static int _bmp_ReadHeader(_bmp_read_context * p_ctx)
-{
-   int success = 0;
-
-   do
-   {
-      if(fgetc(p_ctx->fp) != 0x42 /* 'B' */)                            break;
-      if(fgetc(p_ctx->fp) != 0x4d /* 'M' */)                            break;
-      if(fread(&p_ctx->header, sizeof(_bmp_header), 1, p_ctx->fp) != 1) break;
-
-#ifdef _BMPREAD_BYTESWAP
-      p_ctx->header.file_size   = _bmp_Swap32(p_ctx->header.file_size);
-      p_ctx->header.data_offset = _bmp_Swap32(p_ctx->header.data_offset);
-#endif
-
-      success = 1;
-   } while(0);
-
-   return success;
 }
 
 /* _bmp_IsPowerOf2
@@ -235,30 +304,25 @@ static int _bmp_GetLineLength(int width, int bpp)
    return bits/8; /* convert to bytes */
 }
 
-/* _bmp_ReadInfo
+/* _bmp_Validate
  *
- * Reads and validates the bitmap info struct from the context's file object.
- * Assumes the file pointer is right after the bitmap header.  Returns 1 if ok
- * or 0 if error or invalid file.
+ * Reads and validates the bitmap header metadata from the context's file
+ * object.  Assumes the file pointer is at the start of the file.  Returns 1 if
+ * ok or 0 if error or invalid file.
  */
-static int _bmp_ReadInfo(_bmp_read_context * p_ctx, int flags)
+static int _bmp_Validate(_bmp_read_context * p_ctx, int flags)
 {
    int success = 0;
 
    do
    {
-      if(fread(&p_ctx->info, sizeof(_bmp_info), 1, p_ctx->fp) != 1) break;
-
-#ifdef _BMPREAD_BYTESWAP
-      p_ctx->info.info_size   =     _bmp_Swap32(p_ctx->info.info_size);
-      p_ctx->info.width  = (int32_t)_bmp_Swap32((uint32_t)p_ctx->info.width);
-      p_ctx->info.height = (int32_t)_bmp_Swap32((uint32_t)p_ctx->info.height);
-      p_ctx->info.planes      =     _bmp_Swap16(p_ctx->info.planes);
-      p_ctx->info.bits        =     _bmp_Swap16(p_ctx->info.bits);
-      p_ctx->info.compression =     _bmp_Swap32(p_ctx->info.compression);
-#endif
+      if(!_bmp_ReadHeader(&p_ctx->header, p_ctx->fp)) break;
+      if(!_bmp_ReadInfo(  &p_ctx->info,   p_ctx->fp)) break;
 
       /* some basic validation */
+      if(p_ctx->header.magic[0] != 0x42 /* 'B' */) break;
+      if(p_ctx->header.magic[1] != 0x4d /* 'M' */) break;
+
       if(p_ctx->info.width <= 0 || p_ctx->info.height == 0) break;
       /* no compression supported yet (TODO: RLE) */
       if(p_ctx->info.compression > 0)                       break;
@@ -292,8 +356,7 @@ static int _bmp_ReadInfo(_bmp_read_context * p_ctx, int flags)
 
          if(fseek(p_ctx->fp,
                   p_ctx->info.info_size - sizeof(_bmp_info), SEEK_CUR)) break;
-         if(fread(p_ctx->palette, sizeof(_bmp_palette_entry),
-                  colors, p_ctx->fp) != colors)                         break;
+         if(!_bmp_ReadPalette(p_ctx->palette, (int)colors, p_ctx->fp))  break;
       }
 
       success = 1;
