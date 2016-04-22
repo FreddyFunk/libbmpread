@@ -42,18 +42,18 @@ extern "C"
  */
 typedef struct bmpread_t
 {
-   int width;  /* width in pixels */
-   int height; /* height in pixels */
+    int width;  /* width in pixels */
+    int height; /* height in pixels */
 
-   /* A buffer holding the pixel data of the image.  Each pixel spans three
-    * bytes: the red, green, and blue color components in that order.  The
-    * pixels are ordered left to right, bottom line first (unless you passed
-    * BMPREAD_TOP_DOWN, in which case the top line is first).  If the image has
-    * a width that's not divisible by 4, each line is padded at the end with
-    * unused bytes until its effective width is divisible by 4 (this behavior
-    * can be turned off by passing BMPREAD_BYTE_ALIGN).
-    */
-   unsigned char * rgb_data;
+    /* A buffer holding the pixel data of the image.  Each pixel spans three
+     * bytes: the red, green, and blue color components in that order.  The
+     * pixels are ordered left to right, bottom line first (unless you passed
+     * BMPREAD_TOP_DOWN, in which case the top line is first).  If the image
+     * has a width that's not divisible by 4, each line is padded at the end
+     * with unused bytes until its effective width is divisible by 4 (this
+     * behavior can be turned off by passing BMPREAD_BYTE_ALIGN).
+     */
+    unsigned char * rgb_data;
 
 } bmpread_t;
 
