@@ -201,6 +201,7 @@ static int _bmp_ReadPalette(_bmp_palette_entry * palette, int colors,
 
 typedef struct _bmp_read_context /* data passed around between read ops */
 {
+    unsigned int         flags;         /* flags passed to bmpread */
     FILE               * fp;            /* file pointer */
     _bmp_header          header;        /* file header */
     _bmp_info            info;          /* file info */
@@ -214,9 +215,9 @@ typedef struct _bmp_read_context /* data passed around between read ops */
 } _bmp_read_context;
 
 
-static int _bmp_Validate(_bmp_read_context * p_ctx, unsigned int flags);
+static int _bmp_Validate(_bmp_read_context * p_ctx);
 static int _bmp_InitDecode(_bmp_read_context * p_ctx);
-static int _bmp_Decode(_bmp_read_context * p_ctx, unsigned int flags);
+static int _bmp_Decode(_bmp_read_context * p_ctx);
 static void _bmp_FreeContext(_bmp_read_context * p_ctx, int leave_rgb_data);
 
 
@@ -234,10 +235,12 @@ int bmpread(const char * bmp_file, unsigned int flags, bmpread_t * p_bmp_out)
         if(!p_bmp_out) break;
         memset(p_bmp_out, 0, sizeof(bmpread_t));
 
+        ctx.flags = flags;
+
         if(!(ctx.fp = fopen(bmp_file, "rb"))) break;
-        if(!_bmp_Validate(&ctx, flags))       break;
+        if(!_bmp_Validate(&ctx))              break;
         if(!_bmp_InitDecode(&ctx))            break;
-        if(!_bmp_Decode(&ctx, flags))         break;
+        if(!_bmp_Decode(&ctx))                break;
 
         p_bmp_out->width = (int)ctx.info.width;
         p_bmp_out->height = ctx.lines;
@@ -311,7 +314,7 @@ static int _bmp_GetLineLength(int width, int bpp)
  * object.  Assumes the file pointer is at the start of the file.  Returns 1 if
  * ok or 0 if error or invalid file.
  */
-static int _bmp_Validate(_bmp_read_context * p_ctx, unsigned int flags)
+static int _bmp_Validate(_bmp_read_context * p_ctx)
 {
     int success = 0;
 
@@ -337,11 +340,11 @@ static int _bmp_Validate(_bmp_read_context * p_ctx, unsigned int flags)
         p_ctx->file_line_len = _bmp_GetLineLength(p_ctx->info.width,
                                                   p_ctx->info.bits);
 
-        p_ctx->rgb_line_len = ((flags & BMPREAD_BYTE_ALIGN) ?
+        p_ctx->rgb_line_len = ((p_ctx->flags & BMPREAD_BYTE_ALIGN) ?
                                (int)p_ctx->info.width * 3 :
                                _bmp_GetLineLength(p_ctx->info.width, 24));
 
-        if(!(flags & BMPREAD_ANY_SIZE))
+        if(!(p_ctx->flags & BMPREAD_ANY_SIZE))
         {
             if(!_bmp_IsPowerOf2((int)p_ctx->info.width)) break;
             if(!_bmp_IsPowerOf2(p_ctx->lines))           break;
@@ -476,7 +479,7 @@ static void _bmp_Decode1(uint8_t * p_rgb, uint8_t * p_rgb_end,
  * Selects an above decoder and runs it for each scan line of the file.
  * Returns 0 if there's an error or 1 if it's gravy.
  */
-static int _bmp_Decode(_bmp_read_context * p_ctx, unsigned int flags)
+static int _bmp_Decode(_bmp_read_context * p_ctx)
 {
     void (* decoder)(uint8_t *, uint8_t *, uint8_t *,
                      _bmp_palette_entry *) = NULL;
@@ -494,7 +497,7 @@ static int _bmp_Decode(_bmp_read_context * p_ctx, unsigned int flags)
         case 1:  decoder = _bmp_Decode1;  break;
     }
 
-    if(!(p_ctx->info.height < 0) == !(flags & BMPREAD_TOP_DOWN))
+    if(!(p_ctx->info.height < 0) == !(p_ctx->flags & BMPREAD_TOP_DOWN))
     {
         /* keeping scan lines in order */
         p_rgb      = p_ctx->rgb_data;
