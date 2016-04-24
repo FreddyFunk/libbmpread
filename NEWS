@@ -2,7 +2,8 @@ Changes currently in git
 ------------------------
 
 * Less undefined and implementation-defined behavior, so libbmpread should work
-  in more exotic environments.
+  in more exotic environments.  I believe the only requirement for the runtime
+  environment now is that CHAR_BIT == 8, which is hard to avoid.
 * To that end, the flags have been changed to unsigned ints (they were ints).
   This may require some code changes in consumers of this API.
 * Some formatting, wording, and packaging tweaks.

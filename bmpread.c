@@ -41,6 +41,16 @@
  */
 #include <stdint.h>
 
+/* This code makes a number of assumptions about a byte being 8 bits, which is
+ * technically not required by the C spec(s).  It's likely that not a whole lot
+ * here would need to change if CHAR_BIT != 8, but I haven't taken the time to
+ * figure out exactly what those changes would be.
+ */
+#include <limits.h>
+#if CHAR_BIT != 8
+#error "libbmpread requires CHAR_BIT == 8"
+#endif
+
 
 /* Reads up to 4 little-endian bytes from fp and stores the result in the
  * uint32_t pointed to by dest in the host's byte order.  Returns 0 on EOF or
@@ -58,7 +68,7 @@ static int _bmp_ReadLittleBytes(uint32_t * dest, int bytes, FILE * fp)
         if((byte = fgetc(fp)) == EOF) return 0;
 
         *dest += (uint32_t)byte << shift;
-        shift += 8; /* assume CHAR_BIT of 8, because other code here does */
+        shift += 8;
     }
 
     return 1;
