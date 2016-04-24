@@ -1,8 +1,11 @@
 Changes currently in git
 ------------------------
 
-* Some formatting, wording, and packaging tweaks.  Nothing functional has
-  changed.
+* Less undefined and implementation-defined behavior, so libbmpread should work
+  in more exotic environments.
+* To that end, the flags have been changed to unsigned ints (they were ints).
+  This may require some code changes in consumers of this API.
+* Some formatting, wording, and packaging tweaks.
 
 1.1 (2005 Mar. 15)
 ------------------
