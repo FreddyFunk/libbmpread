@@ -1,7 +1,7 @@
 /******************************************************************************
 * libbmpread - tiny, fast bitmap (.bmp) image file loader                     *
 *              <https://github.com/chazomaticus/libbmpread>                   *
-* Copyright (C) 2005, 2012 Charles Lindsay <chaz@chazomatic.us>               *
+* Copyright (C) 2005, 2012, 2016 Charles Lindsay <chaz@chazomatic.us>         *
 *                                                                             *
 *  This software is provided 'as-is', without any express or implied          *
 *  warranty.  In no event will the authors be held liable for any damages     *
@@ -43,7 +43,7 @@ int main(int argc, char * argv[])
     bmpread_t bmp;
 
     puts("Test utility for libbmpread");
-    puts("Copyright (C) 2005, 2012 Charles Lindsay <chaz@chazomatic.us>");
+    puts("Copyright (C) 2005, 2012, 2016 Charles Lindsay <chaz@chazomatic.us>");
     puts("");
 
     if(argc < 2)
