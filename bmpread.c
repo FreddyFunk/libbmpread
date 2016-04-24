@@ -324,23 +324,15 @@ static int _bmp_Validate(_bmp_read_context * p_ctx)
                                  (int)colors, p_ctx->fp))       break;
         }
 
+        if(!(p_ctx->file_data = (uint8_t *)
+             malloc(p_ctx->file_line_len)))               break;
+        if(!(p_ctx->rgb_data = (uint8_t *)
+             malloc(p_ctx->rgb_line_len * p_ctx->lines))) break;
+
         success = 1;
     } while(0);
 
     return success;
-}
-
-/* _bmp_InitDecode
- *
- * Allocates memory for the decode operation and sets up the file pointer.
- * Returns 1 if success, 0 if failure.
- */
-static int _bmp_InitDecode(_bmp_read_context * p_ctx)
-{
-    return (   (p_ctx->file_data = (uint8_t *)malloc(p_ctx->file_line_len))
-            && (p_ctx->rgb_data = (uint8_t *)
-                malloc(p_ctx->rgb_line_len * p_ctx->lines))
-            && !fseek(p_ctx->fp, p_ctx->header.data_offset, SEEK_SET));
 }
 
 /* _bmp_Decode24
@@ -473,7 +465,7 @@ static int _bmp_Decode(_bmp_read_context * p_ctx)
 
     p_line_end = p_rgb + p_ctx->info.width * 3;
 
-    if(decoder)
+    if(decoder && !fseek(p_ctx->fp, p_ctx->header.data_offset, SEEK_SET))
     {
         while(p_rgb != p_rgb_end &&
               fread(p_ctx->file_data, p_ctx->file_line_len, 1, p_ctx->fp) == 1)
@@ -523,7 +515,6 @@ int bmpread(const char * bmp_file, unsigned int flags, bmpread_t * p_bmp_out)
 
         if(!(ctx.fp = fopen(bmp_file, "rb"))) break;
         if(!_bmp_Validate(&ctx))              break;
-        if(!_bmp_InitDecode(&ctx))            break;
         if(!_bmp_Decode(&ctx))                break;
 
         p_bmp_out->width = (int)ctx.info.width;
