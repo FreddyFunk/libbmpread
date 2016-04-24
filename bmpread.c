@@ -214,14 +214,14 @@ typedef struct _bmp_read_context /* data passed around between read ops */
 } _bmp_read_context;
 
 
-static int _bmp_Validate(_bmp_read_context * p_ctx, int flags);
+static int _bmp_Validate(_bmp_read_context * p_ctx, unsigned int flags);
 static int _bmp_InitDecode(_bmp_read_context * p_ctx);
-static int _bmp_Decode(_bmp_read_context * p_ctx, int flags);
+static int _bmp_Decode(_bmp_read_context * p_ctx, unsigned int flags);
 static void _bmp_FreeContext(_bmp_read_context * p_ctx, int leave_rgb_data);
 
 
 /* see header for details */
-int bmpread(const char * bmp_file, int flags, bmpread_t * p_bmp_out)
+int bmpread(const char * bmp_file, unsigned int flags, bmpread_t * p_bmp_out)
 {
     int success = 0;
 
@@ -311,7 +311,7 @@ static int _bmp_GetLineLength(int width, int bpp)
  * object.  Assumes the file pointer is at the start of the file.  Returns 1 if
  * ok or 0 if error or invalid file.
  */
-static int _bmp_Validate(_bmp_read_context * p_ctx, int flags)
+static int _bmp_Validate(_bmp_read_context * p_ctx, unsigned int flags)
 {
     int success = 0;
 
@@ -476,7 +476,7 @@ static void _bmp_Decode1(uint8_t * p_rgb, uint8_t * p_rgb_end,
  * Selects an above decoder and runs it for each scan line of the file.
  * Returns 0 if there's an error or 1 if it's gravy.
  */
-static int _bmp_Decode(_bmp_read_context * p_ctx, int flags)
+static int _bmp_Decode(_bmp_read_context * p_ctx, unsigned int flags)
 {
     void (* decoder)(uint8_t *, uint8_t *, uint8_t *,
                      _bmp_palette_entry *) = NULL;

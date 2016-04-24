@@ -62,13 +62,13 @@ typedef struct bmpread_t
  */
 
 /* output rgb_data as top line first (default is bottom line first) */
-#define BMPREAD_TOP_DOWN   1
+#define BMPREAD_TOP_DOWN   1u
 
 /* don't pad lines so the width is divisible by 4 (default does pad) */
-#define BMPREAD_BYTE_ALIGN 2
+#define BMPREAD_BYTE_ALIGN 2u
 
 /* allow loading of any size bitmap (default is bitmaps must be 2^n x 2^m) */
-#define BMPREAD_ANY_SIZE   4
+#define BMPREAD_ANY_SIZE   4u
 
 
 /* bmpread
@@ -103,7 +103,7 @@ typedef struct bmpread_t
  * Note that passing any flags may cause the image to be unusable as an OpenGL
  * texture, which may or may not matter to you.
  */
-int bmpread(const char * bmp_file, int flags, bmpread_t * p_bmp_out);
+int bmpread(const char * bmp_file, unsigned int flags, bmpread_t * p_bmp_out);
 
 
 /* bmpread_free
