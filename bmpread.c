@@ -215,56 +215,6 @@ typedef struct _bmp_read_context /* data passed around between read ops */
 
 } _bmp_read_context;
 
-
-static int _bmp_Validate(_bmp_read_context * p_ctx);
-static int _bmp_InitDecode(_bmp_read_context * p_ctx);
-static int _bmp_Decode(_bmp_read_context * p_ctx);
-static void _bmp_FreeContext(_bmp_read_context * p_ctx, int leave_rgb_data);
-
-
-int bmpread(const char * bmp_file, unsigned int flags, bmpread_t * p_bmp_out)
-{
-    int success = 0;
-
-    _bmp_read_context ctx;
-    memset(&ctx, 0, sizeof(_bmp_read_context));
-
-    do
-    {
-        if(!bmp_file)  break;
-        if(!p_bmp_out) break;
-        memset(p_bmp_out, 0, sizeof(bmpread_t));
-
-        ctx.flags = flags;
-
-        if(!(ctx.fp = fopen(bmp_file, "rb"))) break;
-        if(!_bmp_Validate(&ctx))              break;
-        if(!_bmp_InitDecode(&ctx))            break;
-        if(!_bmp_Decode(&ctx))                break;
-
-        p_bmp_out->width = (int)ctx.info.width;
-        p_bmp_out->height = ctx.lines;
-        p_bmp_out->rgb_data = ctx.rgb_data;
-
-        success = 1;
-    } while(0);
-
-    _bmp_FreeContext(&ctx, success);
-
-    return success;
-}
-
-void bmpread_free(bmpread_t * p_bmp)
-{
-    if(p_bmp)
-    {
-        if(p_bmp->rgb_data)
-            free(p_bmp->rgb_data);
-
-        memset(p_bmp, 0, sizeof(bmpread_t));
-    }
-}
-
 /* _bmp_IsPowerOf2
  *
  * Returns whether an integer is a power of 2.
@@ -544,4 +494,47 @@ static void _bmp_FreeContext(_bmp_read_context * p_ctx, int leave_rgb_data)
 
     if(!leave_rgb_data && p_ctx->rgb_data)
         free(p_ctx->rgb_data);
+}
+
+int bmpread(const char * bmp_file, unsigned int flags, bmpread_t * p_bmp_out)
+{
+    int success = 0;
+
+    _bmp_read_context ctx;
+    memset(&ctx, 0, sizeof(_bmp_read_context));
+
+    do
+    {
+        if(!bmp_file)  break;
+        if(!p_bmp_out) break;
+        memset(p_bmp_out, 0, sizeof(bmpread_t));
+
+        ctx.flags = flags;
+
+        if(!(ctx.fp = fopen(bmp_file, "rb"))) break;
+        if(!_bmp_Validate(&ctx))              break;
+        if(!_bmp_InitDecode(&ctx))            break;
+        if(!_bmp_Decode(&ctx))                break;
+
+        p_bmp_out->width = (int)ctx.info.width;
+        p_bmp_out->height = ctx.lines;
+        p_bmp_out->rgb_data = ctx.rgb_data;
+
+        success = 1;
+    } while(0);
+
+    _bmp_FreeContext(&ctx, success);
+
+    return success;
+}
+
+void bmpread_free(bmpread_t * p_bmp)
+{
+    if(p_bmp)
+    {
+        if(p_bmp->rgb_data)
+            free(p_bmp->rgb_data);
+
+        memset(p_bmp, 0, sizeof(bmpread_t));
+    }
 }
