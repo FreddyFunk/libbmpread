@@ -33,11 +33,12 @@
 #include <stdlib.h>
 #include <string.h>
 
-/* If your compiler doesn't come with stdint.h, which is technically a C99   */
-/* feature, see <http://stackoverflow.com/q/126279>.  There are 3rd party    */
-/* solutions to this problem, which you should be able to find with a little */
-/* searching.  Alternately, just define the following types yourself:        */
-/* uint8_t, uint16_t, uint32_t, and int32_t.                                 */
+/* If your compiler doesn't come with stdint.h, which is technically a C99
+ * feature, see <http://stackoverflow.com/q/126279>.  There are 3rd party
+ * solutions to this problem, which you should be able to find with a little
+ * searching.  Alternately, just define the following types yourself: uint8_t,
+ * uint16_t, uint32_t, and int32_t.
+ */
 #include <stdint.h>
 
 
@@ -164,10 +165,10 @@ static int _bmp_ReadInfo(_bmp_info * info, FILE * fp)
 
 typedef struct _bmp_palette_entry /* a single color in the palette */
 {
-    uint8_t blue;   /* blue comes first, for some reason */
+    uint8_t blue;   /* blue comes first */
     uint8_t green;  /* green component */
     uint8_t red;    /* red comes last */
-    uint8_t unused; /* one unused byte.  Great. */
+    uint8_t unused; /* one unused byte */
 
 } _bmp_palette_entry;
 
@@ -221,7 +222,6 @@ static int _bmp_Decode(_bmp_read_context * p_ctx);
 static void _bmp_FreeContext(_bmp_read_context * p_ctx, int leave_rgb_data);
 
 
-/* see header for details */
 int bmpread(const char * bmp_file, unsigned int flags, bmpread_t * p_bmp_out)
 {
     int success = 0;
@@ -254,7 +254,6 @@ int bmpread(const char * bmp_file, unsigned int flags, bmpread_t * p_bmp_out)
     return success;
 }
 
-/* see header for details */
 void bmpread_free(bmpread_t * p_bmp)
 {
     if(p_bmp)
