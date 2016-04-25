@@ -36,9 +36,7 @@ extern "C"
 #endif
 
 
-/* bmpread_t
- *
- * The struct filled by bmpread.  Holds information about the image's pixels.
+/* The struct filled by bmpread.  Holds information about the image's pixels.
  */
 typedef struct bmpread_t
 {
@@ -58,22 +56,19 @@ typedef struct bmpread_t
 } bmpread_t;
 
 
-/* Flags for bmpread.  Combine with bitwise or.
- */
+/* Flags for bmpread.  Combine with bitwise or: */
 
-/* output rgb_data as top line first (default is bottom line first) */
+/* Output rgb_data as top line first (default is bottom line first). */
 #define BMPREAD_TOP_DOWN   1u
 
-/* don't pad lines so the width is divisible by 4 (default does pad) */
+/* Don't pad lines so the width is divisible by 4 (default does pad). */
 #define BMPREAD_BYTE_ALIGN 2u
 
-/* allow loading of any size bitmap (default is bitmaps must be 2^n x 2^m) */
+/* Allow loading of any size bitmap (default is bitmaps must be 2^n x 2^m). */
 #define BMPREAD_ANY_SIZE   4u
 
 
-/* bmpread
- *
- * Loads the specified bitmap file from disk and fills out a bmpread_t struct
+/* Loads the specified bitmap file from disk and fills out a bmpread_t struct
  * with data about it.
  *
  * Inputs:
@@ -106,9 +101,7 @@ typedef struct bmpread_t
 int bmpread(const char * bmp_file, unsigned int flags, bmpread_t * p_bmp_out);
 
 
-/* bmpread_free
- *
- * Frees memory allocated during bmpread.  Call bmpread_free when you are done
+/* Frees memory allocated during bmpread.  Call bmpread_free when you are done
  * using the bmpread_t struct (e.g. after you have passed the data on to
  * OpenGL).
  *
