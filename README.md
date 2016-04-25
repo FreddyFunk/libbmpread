@@ -2,8 +2,8 @@ libbmpread
 ==========
 
 libbmpread is a tiny, fast bitmap (.bmp) image file loader, written from
-scratch in portable ANSI C, with no dependencies.  Its default behavior is
-compatible with OpenGL texture functions, making it ideal for use in simple
+scratch in portable C (see below), with no dependencies.  Its default behavior
+is compatible with OpenGL texture functions, making it ideal for use in simple
 games.  It handles uncompressed monochrome, 16- and 256-color, and 24-bit
 bitmap files of any size (no RLE support yet).
 
@@ -20,6 +20,9 @@ are:
 * `bmpread_t` - struct that holds bitmap data
 * `bmpread()` - read bitmap data from disk into a `bmpread_t`
 * `bmpread_free()` - free memory allocated in `bmpread()`
+
+Example
+-------
 
 Here's a code snippet showing how libbmpread might be used to create an OpenGL
 texture from a bitmap file on disk:
@@ -66,6 +69,23 @@ void SomeInitFunction(void)
     // ...
 }
 ```
+
+Portability/Security Notes
+--------------------------
+
+libbmpread is written to be maximally ANSI C (C89/C90) portable, minimizing
+undefined and implementation-defined behavior.  It's also written to be able to
+be compiled as C++, so it can be used in C++ projects with a minimum of fuss.
+It should work in most environments--I believe there are only two assumptions
+the code makes that aren't guaranteed by the C standard: 1) `CHAR_BIT == 8`
+(note: if this is violated, compilation will fail), and 2) two's complement
+integer storage; deviations from these assumptions are extremely rare in the
+wild.
+
+I've taken precautions to prevent some common bugs that can have security
+impact, such as integer overflows, but I haven't done a thorough audit, nor am
+I an expert at writing hardened "C/C++" code.  This means that libbmpread isn't
+guaranteed not to be rife with exploits.  Please only use it on trusted images.
 
 
 Enjoy!
