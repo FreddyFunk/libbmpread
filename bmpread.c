@@ -125,7 +125,9 @@ static int _bmp_ReadUint8(uint8_t * dest, FILE * fp)
     return 1;
 }
 
-typedef struct _bmp_header /* bitmap file header */
+/* Bitmap file header, including magic bytes.
+ */
+typedef struct _bmp_header
 {
     uint8_t  magic[2];    /* magic bytes 'B' and 'M' */
     uint32_t file_size;   /* size of whole file */
@@ -147,7 +149,9 @@ static int _bmp_ReadHeader(_bmp_header * header, FILE * fp)
     return 1;
 }
 
-typedef struct _bmp_info /* immediately follows header; describes image */
+/* Bitmap info struct: comes immediately after header and describes the image.
+ */
+typedef struct _bmp_info
 {
     uint32_t info_size;   /* size of info struct (is >sizeof(_bmp_info)) */
     int32_t  width;       /* width of image */
@@ -155,7 +159,9 @@ typedef struct _bmp_info /* immediately follows header; describes image */
     uint16_t planes;      /* planes (should be 1) */
     uint16_t bits;        /* number of bits (1, 4, 8, 16, 24, or 32) */
     uint32_t compression; /* 0 = none, 1 = 8-bit RLE, 2 = 4-bit RLE */
-    /* there are other fields in the actual file info, but we don't need 'em */
+
+    /* There are other fields in the actual file info, but we don't need 'em.
+     */
 
 } _bmp_info;
 
@@ -173,12 +179,14 @@ static int _bmp_ReadInfo(_bmp_info * info, FILE * fp)
     return 1;
 }
 
-typedef struct _bmp_palette_entry /* a single color in the palette */
+/* A single color entry in the palette, in file order (BGR + one unused byte).
+ */
+typedef struct _bmp_palette_entry
 {
-    uint8_t blue;   /* blue comes first */
-    uint8_t green;  /* green component */
-    uint8_t red;    /* red comes last */
-    uint8_t unused; /* one unused byte */
+    uint8_t blue;
+    uint8_t green;
+    uint8_t red;
+    uint8_t unused;
 
 } _bmp_palette_entry;
 
@@ -212,7 +220,9 @@ static int _bmp_ReadPalette(_bmp_palette_entry * palette, size_t colors,
     return 1;
 }
 
-typedef struct _bmp_read_context /* data passed around between read ops */
+/* Context shared between various functions in this library.
+ */
+typedef struct _bmp_read_context
 {
     unsigned int         flags;         /* flags passed to bmpread */
     FILE               * fp;            /* file pointer */
@@ -227,9 +237,7 @@ typedef struct _bmp_read_context /* data passed around between read ops */
 
 } _bmp_read_context;
 
-/* _bmp_IsPowerOf2
- *
- * Returns whether an integer is a power of 2.
+/* Returns whether an integer is a power of 2.
  */
 static int _bmp_IsPowerOf2(int32_t x)
 {
@@ -248,17 +256,16 @@ static int _bmp_IsPowerOf2(int32_t x)
 
     for(bit = 1; bit; bit <<= 1)
     {
+        /* When we find a bit, return whether no other bits are set: */
         if(x & bit)
-            return !(x & ~bit); /* return nonzero if no other bits are set */
+            return !(x & ~bit);
     }
 
-    /* if it didn't find a bit, x was 0, which isn't a power of 2 */
+    /* 0, the only value for x which lands us here, isn't a power of 2. */
     return 0;
 }
 
-/* _bmp_GetLineLength
- *
- * Returns the DWORD-aligned byte-length of a scan line.  For instance, for
+/* Returns the DWORD-aligned byte-length of a scan line.  For instance, for
  * 24-bit data 3 pixels wide, it would return 12 (3 pixels * 3 bytes each = 9
  * bytes, then padded to the next DWORD).  bpp is BITS per pixel, not bytes.
  */
@@ -270,16 +277,14 @@ static size_t _bmp_GetLineLength(size_t width, size_t bpp)
     bits = width * bpp;
     pad_bits = 32 - (bits & 0x1f); /* bits & 0x1f == bits % 32 */
 
-    /* if it's not already dword aligned, add pad_bits to it */
+    /* If it's not already dword aligned, add pad_bits to it: */
     if(pad_bits < 32)
         bits += pad_bits;
 
     return bits/8; /* convert to bytes */
 }
 
-/* _bmp_Validate
- *
- * Reads and validates the bitmap header metadata from the context's file
+/* Reads and validates the bitmap header metadata from the context's file
  * object.  Assumes the file pointer is at the start of the file.  Returns 1 if
  * ok or 0 if error or invalid file.
  */
@@ -292,7 +297,7 @@ static int _bmp_Validate(_bmp_read_context * p_ctx)
         if(!_bmp_ReadHeader(&p_ctx->header, p_ctx->fp)) break;
         if(!_bmp_ReadInfo(  &p_ctx->info,   p_ctx->fp)) break;
 
-        /* some basic validation */
+        /* Some basic validation: */
         if(p_ctx->header.magic[0] != 0x42 /* 'B' */) break;
         if(p_ctx->header.magic[1] != 0x4d /* 'M' */) break;
 
@@ -302,7 +307,7 @@ static int _bmp_Validate(_bmp_read_context * p_ctx)
         if(p_ctx->info.width <= 0 ||
            p_ctx->info.height == 0 || p_ctx->info.height == INT32_MIN) break;
 
-        /* no compression supported yet (TODO: RLE) */
+        /* No compression supported yet (TODO: handle RLE). */
         if(p_ctx->info.compression > 0)                                break;
 
         if(p_ctx->info.bits != 1 && p_ctx->info.bits != 4 &&
@@ -328,7 +333,7 @@ static int _bmp_Validate(_bmp_read_context * p_ctx)
             if(!_bmp_IsPowerOf2(p_ctx->lines))      break;
         }
 
-        /* handle palettes */
+        /* Handle palettes: */
         if(p_ctx->info.bits <= 8)
         {
             size_t colors = 1 << (size_t)p_ctx->info.bits;
@@ -342,6 +347,7 @@ static int _bmp_Validate(_bmp_read_context * p_ctx)
             if(!_bmp_ReadPalette(p_ctx->palette, colors, p_ctx->fp)) break;
         }
 
+        /* Set things up for decoding: */
         if(!(p_ctx->file_data = (uint8_t *)
              malloc(p_ctx->file_line_len)))               break;
         if(!(p_ctx->rgb_data = (uint8_t *)
@@ -353,9 +359,7 @@ static int _bmp_Validate(_bmp_read_context * p_ctx)
     return success;
 }
 
-/* _bmp_Decode24
- *
- * Decodes 24-bit bitmap data.  Takes a pointer to an output buffer scan line
+/* Decodes 24-bit bitmap data.  Takes a pointer to an output buffer scan line
  * (p_rgb), a pointer to the end of the PIXEL DATA of this scan line
  * (p_rgb_end), a pointer to the source scan line of file data (p_file), and a
  * pointer to a palette (not used in this case).
@@ -365,19 +369,17 @@ static void _bmp_Decode24(uint8_t * p_rgb, uint8_t * p_rgb_end,
 {
     while(p_rgb < p_rgb_end)
     {
-        /* output is RGB, but input is BGR, hence the +/- 2 */
+        /* Output is RGB, but input is BGR, hence the +/- 2. */
         *p_rgb++ = *(p_file++ + 2);
         *p_rgb++ = *(p_file++    );
         *p_rgb++ = *(p_file++ - 2);
     }
 
-    /* palette is unused; this prevents a pedantic warning */
+    /* palette is unused; this prevents a pedantic warning: */
     (void)palette;
 }
 
-/* _bmp_Decode8
- *
- * Same as _bmp_Decode24, but for 8 bit palette data.
+/* Same as _bmp_Decode24, but for 8 bit palette data.
  */
 static void _bmp_Decode8(uint8_t * p_rgb, uint8_t * p_rgb_end,
                          uint8_t * p_file, _bmp_palette_entry * palette)
@@ -390,9 +392,7 @@ static void _bmp_Decode8(uint8_t * p_rgb, uint8_t * p_rgb_end,
     }
 }
 
-/* _bmp_Decode4
- *
- * Same as _bmp_Decode24, but for 4 bit palette data.
+/* Same as _bmp_Decode24, but for 4 bit palette data.
  */
 static void _bmp_Decode4(uint8_t * p_rgb, uint8_t * p_rgb_end,
                          uint8_t * p_file, _bmp_palette_entry * palette)
@@ -418,9 +418,7 @@ static void _bmp_Decode4(uint8_t * p_rgb, uint8_t * p_rgb_end,
     }
 }
 
-/* _bmp_Decode1
- *
- * Same as _bmp_Decode24, but for monochrome palette data.
+/* Same as _bmp_Decode24, but for monochrome palette data.
  */
 static void _bmp_Decode1(uint8_t * p_rgb, uint8_t * p_rgb_end,
                          uint8_t * p_file, _bmp_palette_entry * palette)
@@ -443,9 +441,7 @@ static void _bmp_Decode1(uint8_t * p_rgb, uint8_t * p_rgb_end,
     }
 }
 
-/* _bmp_Decode
- *
- * Selects an above decoder and runs it for each scan line of the file.
+/* Selects an above decoder and runs it for each scan line of the file.
  * Returns 0 if there's an error or 1 if it's gravy.
  */
 static int _bmp_Decode(_bmp_read_context * p_ctx)
@@ -456,7 +452,7 @@ static int _bmp_Decode(_bmp_read_context * p_ctx)
     uint8_t * p_rgb;      /* pointer to current scan line in output buffer */
     uint8_t * p_rgb_end;  /* end marker for output buffer */
     uint8_t * p_line_end; /* pointer to end of current scan line in output */
-    /* FIXME: this should be ssize_t or something equivalent yet portable. */
+    /* FIXME: this should be ssize_t or something equivalent yet portable: */
     int       rgb_inc;    /* incrementor for scan line in output buffer */
 
     switch(p_ctx->info.bits)
@@ -469,14 +465,14 @@ static int _bmp_Decode(_bmp_read_context * p_ctx)
 
     if(!(p_ctx->info.height < 0) == !(p_ctx->flags & BMPREAD_TOP_DOWN))
     {
-        /* keeping scan lines in order */
+        /* We're keeping scan lines in order. */
         p_rgb      = p_ctx->rgb_data;
         p_rgb_end  = p_ctx->rgb_data + (p_ctx->rgb_line_len * p_ctx->lines);
         rgb_inc    = (int)p_ctx->rgb_line_len;
     }
     else
     {
-        /* reversing scan lines */
+        /* We're reversing scan lines. */
         p_rgb     = p_ctx->rgb_data + (p_ctx->rgb_line_len * (p_ctx->lines-1));
         p_rgb_end = p_ctx->rgb_data - p_ctx->rgb_line_len;
         rgb_inc   = -(int)p_ctx->rgb_line_len;
@@ -499,9 +495,7 @@ static int _bmp_Decode(_bmp_read_context * p_ctx)
     return (p_rgb == p_rgb_end);
 }
 
-/* _bmp_FreeContext
- *
- * Frees resources allocated by various functions along the way.  Only frees
+/* Frees resources allocated by various functions along the way.  Only frees
  * rgb_data if !leave_rgb_data (if the bitmap loads successfully, you want the
  * data to remain until THEY free it).
  */
