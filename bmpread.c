@@ -188,24 +188,26 @@ typedef struct _bmp_palette_entry /* a single color in the palette */
 static int _bmp_ReadPalette(_bmp_palette_entry * palette, int colors,
                             FILE * fp)
 {
-    /* This is probably the least efficient way to go about this.  But, it's
-     * the easiest, without going into implementation-defined behavior or
-     * allocating a chunk of memory.  The hope is that the compiler would
-     * optimize a bunch of this away into something like a nice long memcpy
-     * (from the stdio buffer, I presume).
-     *
-     * If this is too slow, you could still avoid implementation-defined
-     * behavior by allocating space for a buffer (either heap or stack if you
-     * don't want to malloc) and doing one long fread, then copying bytes
-     * manually.
+    /* This isn't the guaranteed-fastest way to implement this, but it should
+     * perform quite well in practice due to compiler optimization and stdio
+     * input buffering.  It's implemented this way because of how simple the
+     * code is, while avoiding undefined and implementation-defined behavior or
+     * allocating any memory.  If you aren't averse to an extra allocation (or
+     * using a chunk of the stack), it might be made faster while still
+     * avoiding implementation-defined behavior by reading the entire palette
+     * into one big buffer up front, then copying bytes into place.
      */
     int i;
     for(i = 0; i < colors; i++)
     {
-        if(!_bmp_ReadUint8(&palette[i].blue,   fp)) return 0;
-        if(!_bmp_ReadUint8(&palette[i].green,  fp)) return 0;
-        if(!_bmp_ReadUint8(&palette[i].red,    fp)) return 0;
-        if(!_bmp_ReadUint8(&palette[i].unused, fp)) return 0;
+        uint8_t components[4];
+        if(fread(components, 1, sizeof(components), fp) != sizeof(components))
+            return 0;
+
+        palette[i].blue   = components[0];
+        palette[i].green  = components[1];
+        palette[i].red    = components[2];
+        palette[i].unused = components[3];
     }
     return 1;
 }
