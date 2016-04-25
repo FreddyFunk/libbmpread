@@ -22,8 +22,8 @@
 
 
 /* bmpread.h
- * version 1.1+git
- * 2012-09-29
+ * version 2.0
+ * 2016-04-24
  */
 
 

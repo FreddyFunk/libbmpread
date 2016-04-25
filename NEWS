@@ -1,5 +1,5 @@
-Changes currently in git
-------------------------
+2.0 (2016 Apr. 24)
+------------------
 
 * Less undefined and implementation-defined behavior, so libbmpread should work
   in more exotic environments.  I believe the only two requirements for the
