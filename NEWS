@@ -2,8 +2,9 @@ Changes currently in git
 ------------------------
 
 * Less undefined and implementation-defined behavior, so libbmpread should work
-  in more exotic environments.  I believe the only requirement for the runtime
-  environment now is that CHAR_BIT == 8, which is hard to avoid.
+  in more exotic environments.  I believe the only two requirements for the
+  runtime environment now are that CHAR_BIT == 8 and integers are stored in
+  two's complement, both of which are hard to avoid.
 * To that end, the flags have been changed to unsigned ints (they were ints).
   This may require some code changes in consumers of this API.
 * Some formatting, wording, and packaging tweaks.
@@ -11,7 +12,7 @@ Changes currently in git
 1.1 (2005 Mar. 15)
 ------------------
 
-* Added byte-swapping code for big-endian machines (bmpread will now work on
+* Added byte-swapping code for big-endian machines (libbmpread will now work on
   Macs!).  Thanks to Micah Tomblin for testing this for me.
 
 1.0 (2005 Mar. 14)
