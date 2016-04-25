@@ -1,1 +1,3 @@
 * Handle RLE compressed bitmaps
+* Automated tests (perhaps using http://bmptestsuite.sourceforge.net/; should
+  include portable C & C++ compilation checks)
