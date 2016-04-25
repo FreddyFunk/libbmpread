@@ -29,6 +29,7 @@
 
 #include "bmpread.h"
 
+#include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -46,7 +47,6 @@
  * here would need to change if CHAR_BIT != 8, but I haven't taken the time to
  * figure out exactly what those changes would be.
  */
-#include <limits.h>
 #if CHAR_BIT != 8
 #error "libbmpread requires CHAR_BIT == 8"
 #endif
@@ -58,7 +58,7 @@
  */
 static int _bmp_ReadLittleBytes(uint32_t * dest, int bytes, FILE * fp)
 {
-    int shift = 0;
+    uint32_t shift = 0;
 
     *dest = 0;
 
@@ -185,7 +185,7 @@ typedef struct _bmp_palette_entry /* a single color in the palette */
 /* Reads the given number of colors from fp into the palette array.  Returns 0
  * on EOF or nonzero on success.
  */
-static int _bmp_ReadPalette(_bmp_palette_entry * palette, int colors,
+static int _bmp_ReadPalette(_bmp_palette_entry * palette, size_t colors,
                             FILE * fp)
 {
     /* This isn't the guaranteed-fastest way to implement this, but it should
@@ -197,7 +197,7 @@ static int _bmp_ReadPalette(_bmp_palette_entry * palette, int colors,
      * avoiding implementation-defined behavior by reading the entire palette
      * into one big buffer up front, then copying bytes into place.
      */
-    int i;
+    size_t i;
     for(i = 0; i < colors; i++)
     {
         uint8_t components[4];
@@ -218,9 +218,9 @@ typedef struct _bmp_read_context /* data passed around between read ops */
     FILE               * fp;            /* file pointer */
     _bmp_header          header;        /* file header */
     _bmp_info            info;          /* file info */
-    int                  lines;         /* how many scan lines (abs(height)) */
-    int                  file_line_len; /* how many bytes each scan line is */
-    int                  rgb_line_len;  /* bytes in each output line */
+    int32_t              lines;         /* how many scan lines (abs(height)) */
+    size_t               file_line_len; /* how many bytes each scan line is */
+    size_t               rgb_line_len;  /* bytes in each output line */
     _bmp_palette_entry * palette;       /* palette */
     uint8_t            * file_data;     /* a line of data in the file */
     uint8_t            * rgb_data;      /* rgb data output buffer */
@@ -231,9 +231,17 @@ typedef struct _bmp_read_context /* data passed around between read ops */
  *
  * Returns whether an integer is a power of 2.
  */
-static int _bmp_IsPowerOf2(int x)
+static int _bmp_IsPowerOf2(int32_t x)
 {
-    int bit;
+    int32_t bit;
+
+    /* This check is necessary to avoid undefined behavior when negating x
+     * below.  I'm a bit murky on the spec here, but this may assume two's
+     * complement integer storage, which I believe isn't mandated.
+     * FIXME: is there a more portable overflow check?
+     */
+    if(x == INT32_MIN)
+        return 1;
 
     if(x < 0)
         x = -x;
@@ -254,13 +262,13 @@ static int _bmp_IsPowerOf2(int x)
  * 24-bit data 3 pixels wide, it would return 12 (3 pixels * 3 bytes each = 9
  * bytes, then padded to the next DWORD).  bpp is BITS per pixel, not bytes.
  */
-static int _bmp_GetLineLength(int width, int bpp)
+static size_t _bmp_GetLineLength(size_t width, size_t bpp)
 {
-    int bits;     /* number of bits in a line */
-    int pad_bits; /* number of padding bits to make bits divisible by 32 */
+    size_t bits;     /* number of bits in a line */
+    size_t pad_bits; /* number of padding bits to make bits divisible by 32 */
 
     bits = width * bpp;
-    pad_bits = 32 - (bits & 0x1f); /* bits & 0x1f == bits % 32, but faster */
+    pad_bits = 32 - (bits & 0x1f); /* bits & 0x1f == bits % 32 */
 
     /* if it's not already dword aligned, add pad_bits to it */
     if(pad_bits < 32)
@@ -288,42 +296,50 @@ static int _bmp_Validate(_bmp_read_context * p_ctx)
         if(p_ctx->header.magic[0] != 0x42 /* 'B' */) break;
         if(p_ctx->header.magic[1] != 0x4d /* 'M' */) break;
 
-        if(p_ctx->info.width <= 0 || p_ctx->info.height == 0) break;
+        /* This INT32_MIN check is again here to avoid undefined behavior when
+         * negating the height below.  See the note in _bmp_IsPowerOf2.
+         */
+        if(p_ctx->info.width <= 0 ||
+           p_ctx->info.height == 0 || p_ctx->info.height == INT32_MIN) break;
+
         /* no compression supported yet (TODO: RLE) */
-        if(p_ctx->info.compression > 0)                       break;
+        if(p_ctx->info.compression > 0)                                break;
+
         if(p_ctx->info.bits != 1 && p_ctx->info.bits != 4 &&
-           p_ctx->info.bits != 8 && p_ctx->info.bits != 24)   break;
+           p_ctx->info.bits != 8 && p_ctx->info.bits != 24)            break;
 
         p_ctx->lines = ((p_ctx->info.height < 0) ?
-                        (int)-p_ctx->info.height :
-                        (int) p_ctx->info.height);
+                        -p_ctx->info.height :
+                         p_ctx->info.height);
 
         p_ctx->file_line_len = _bmp_GetLineLength(p_ctx->info.width,
                                                   p_ctx->info.bits);
 
+        /* FIXME: ensure that converting int32_t => size_t here won't overflow,
+         * which could be the case for 16-bit platforms.
+         */
         p_ctx->rgb_line_len = ((p_ctx->flags & BMPREAD_BYTE_ALIGN) ?
-                               (int)p_ctx->info.width * 3 :
+                               (size_t)p_ctx->info.width * 3 :
                                _bmp_GetLineLength(p_ctx->info.width, 24));
 
         if(!(p_ctx->flags & BMPREAD_ANY_SIZE))
         {
-            if(!_bmp_IsPowerOf2((int)p_ctx->info.width)) break;
-            if(!_bmp_IsPowerOf2(p_ctx->lines))           break;
+            if(!_bmp_IsPowerOf2(p_ctx->info.width)) break;
+            if(!_bmp_IsPowerOf2(p_ctx->lines))      break;
         }
 
         /* handle palettes */
         if(p_ctx->info.bits <= 8)
         {
-            unsigned int colors = 1 << p_ctx->info.bits;
+            size_t colors = 1 << (size_t)p_ctx->info.bits;
 
             if(!(p_ctx->palette = (_bmp_palette_entry *)
-                 malloc(colors * sizeof(_bmp_palette_entry))))  break;
+                 malloc(colors * sizeof(_bmp_palette_entry))))       break;
 
             if(fseek(p_ctx->fp,
                      p_ctx->info.info_size - sizeof(_bmp_info),
-                     SEEK_CUR))                                 break;
-            if(!_bmp_ReadPalette(p_ctx->palette,
-                                 (int)colors, p_ctx->fp))       break;
+                     SEEK_CUR))                                      break;
+            if(!_bmp_ReadPalette(p_ctx->palette, colors, p_ctx->fp)) break;
         }
 
         if(!(p_ctx->file_data = (uint8_t *)
@@ -438,9 +454,10 @@ static int _bmp_Decode(_bmp_read_context * p_ctx)
                      _bmp_palette_entry *) = NULL;
 
     uint8_t * p_rgb;      /* pointer to current scan line in output buffer */
-    int rgb_inc;          /* incrementor for scan line in outupt buffer */
     uint8_t * p_rgb_end;  /* end marker for output buffer */
     uint8_t * p_line_end; /* pointer to end of current scan line in output */
+    /* FIXME: this should be ssize_t or something equivalent yet portable. */
+    int       rgb_inc;    /* incrementor for scan line in output buffer */
 
     switch(p_ctx->info.bits)
     {
@@ -454,15 +471,15 @@ static int _bmp_Decode(_bmp_read_context * p_ctx)
     {
         /* keeping scan lines in order */
         p_rgb      = p_ctx->rgb_data;
-        rgb_inc    = p_ctx->rgb_line_len;
         p_rgb_end  = p_ctx->rgb_data + (p_ctx->rgb_line_len * p_ctx->lines);
+        rgb_inc    = (int)p_ctx->rgb_line_len;
     }
     else
     {
         /* reversing scan lines */
         p_rgb     = p_ctx->rgb_data + (p_ctx->rgb_line_len * (p_ctx->lines-1));
-        rgb_inc   = -p_ctx->rgb_line_len;
         p_rgb_end = p_ctx->rgb_data - p_ctx->rgb_line_len;
+        rgb_inc   = -(int)p_ctx->rgb_line_len;
     }
 
     p_line_end = p_rgb + p_ctx->info.width * 3;
@@ -470,7 +487,8 @@ static int _bmp_Decode(_bmp_read_context * p_ctx)
     if(decoder && !fseek(p_ctx->fp, p_ctx->header.data_offset, SEEK_SET))
     {
         while(p_rgb != p_rgb_end &&
-              fread(p_ctx->file_data, p_ctx->file_line_len, 1, p_ctx->fp) == 1)
+              fread(p_ctx->file_data, 1, p_ctx->file_line_len, p_ctx->fp) ==
+              p_ctx->file_line_len)
         {
             decoder(p_rgb, p_line_end, p_ctx->file_data, p_ctx->palette);
             p_rgb += rgb_inc;
@@ -519,7 +537,7 @@ int bmpread(const char * bmp_file, unsigned int flags, bmpread_t * p_bmp_out)
         if(!_bmp_Validate(&ctx))              break;
         if(!_bmp_Decode(&ctx))                break;
 
-        p_bmp_out->width = (int)ctx.info.width;
+        p_bmp_out->width = ctx.info.width;
         p_bmp_out->height = ctx.lines;
         p_bmp_out->rgb_data = ctx.rgb_data;
 
