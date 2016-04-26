@@ -42,13 +42,13 @@ int main(int argc, char * argv[])
 {
     bmpread_t bmp;
 
-    puts("Test utility for libbmpread");
+    puts("Example utility for libbmpread");
     puts("Copyright (C) 2005, 2012, 2016 Charles Lindsay <chaz@chazomatic.us>");
     puts("");
 
     if(argc < 2)
     {
-        puts("Usage: test <bmpfile> [glut_options]");
+        printf("Usage: %s <bmpfile> [glut_options]\n", argv[0]);
         puts("Loads <bmpfile> and attempts to display it on an OpenGL quad, stretched across");
         puts("the entire window, using GLUT.  If the bitmap looks correct, libbmpread works");
         puts("correctly!  You can pass options to GLUT using [glut_options].");

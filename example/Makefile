@@ -1,5 +1,5 @@
-test: ../bmpread.c ../bmpread.h test.c
+bmpread-example: ../bmpread.c ../bmpread.h bmpread-example.c
 	$(CC) -ansi -pedantic -Wall -Wextra -Werror -o $@ $^ -I.. -lGL -lglut
 clean:
-	rm -f test
+	rm -f bmpread-example
 .PHONY: clean
