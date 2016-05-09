@@ -70,6 +70,16 @@ void SomeInitFunction(void)
 }
 ```
 
+See also the `example` directory for a full, compiling example that displays a
+bitmap named on the command line on an OpenGL quad using GLUT.  To build and
+run:
+
+    cd example
+    make
+    ./bmpread-example <bmpfile>
+
+Some example bitmap files are included there as well.
+
 Portability/Security Notes
 --------------------------
 
@@ -80,7 +90,8 @@ It should work in most environments--I believe there are only two assumptions
 the code makes that aren't guaranteed by the C standard: 1) `CHAR_BIT == 8`
 (note: if this is violated, compilation will fail), and 2) two's complement
 integer storage; deviations from these assumptions are extremely rare in the
-wild.
+wild.  I've also made use of `<stdint.h>`, which is technically a C99 feature,
+but is common in practice even for non-compliant compilers.
 
 I've taken precautions to prevent some common bugs that can have security
 impact, such as integer overflows, but I haven't done a thorough audit, nor am
