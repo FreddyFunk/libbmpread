@@ -87,5 +87,22 @@ impact, such as integer overflows, but I haven't done a thorough audit, nor am
 I an expert at writing hardened "C/C++" code.  This means that libbmpread isn't
 guaranteed not to be rife with exploits.  Please only use it on trusted images.
 
+Tests
+-----
+
+To run the test suite:
+
+    cd test
+    make
+
+The last line will read `All tests passed!` if everything was ok.  Be patient:
+I test an unoptimized function over its entire 32-bit numeric range, so it can
+take a minute or two to finish.
+
+There are some basic unit tests, but more work is needed to test the behavior
+of the public API.  The tests are compiled as both portable C and portable C++
+code to cover compilation in each, and each resulting test binary is run to
+check its runtime behavior.
+
 
 Enjoy!
