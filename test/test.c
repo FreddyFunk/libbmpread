@@ -129,10 +129,18 @@ static void test_ReadUint8(void)
 
 static void test_IsPowerOf2(void)
 {
-    int32_t i;
-    int32_t j;
+    uint32_t i;
+    uint32_t j;
 
-    for(i = 1; i <= INT32_MAX / 2; i *= 2)
+    assert(!_bmp_IsPowerOf2(0));
+
+    /* Because the values passed to this come from int32_ts which are checked
+     * against being negative, the max value necessary to test here is
+     * INT32_MAX, not UINT32_MAX.  It wouldn't matter, but this function is so
+     * slow that I only want to care about testing values that can be seen in
+     * the program.
+     */
+    for(i = 1; i <= (uint32_t)INT32_MAX / 2; i *= 2)
     {
         assert(_bmp_IsPowerOf2(i));
         for(j = i + 1; j < i * 2; j++)
@@ -140,28 +148,11 @@ static void test_IsPowerOf2(void)
     }
 
     assert(_bmp_IsPowerOf2(i));
-    if(i < INT32_MAX)
+    if(i < (uint32_t)INT32_MAX)
     {
-        for(j = i + 1; j < INT32_MAX; j++)
+        for(j = i + 1; j < (uint32_t)INT32_MAX; j++)
             assert(!_bmp_IsPowerOf2(j));
         assert(!_bmp_IsPowerOf2(INT32_MAX));
-    }
-
-    assert(!_bmp_IsPowerOf2(0));
-
-    for(i = -1; i >= INT32_MIN / 2; i *= 2)
-    {
-        assert(_bmp_IsPowerOf2(i));
-        for(j = i - 1; j > i * 2; j--)
-            assert(!_bmp_IsPowerOf2(j));
-    }
-
-    assert(_bmp_IsPowerOf2(i));
-    if(i > INT32_MIN)
-    {
-        for(j = i - 1; j > INT32_MIN; j--)
-            assert(!_bmp_IsPowerOf2(j));
-        assert(_bmp_IsPowerOf2(INT32_MIN));
     }
 }
 

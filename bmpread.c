@@ -239,20 +239,9 @@ typedef struct _bmp_read_context
 
 /* Returns whether an integer is a power of 2.
  */
-static int _bmp_IsPowerOf2(int32_t x)
+static int _bmp_IsPowerOf2(uint32_t x)
 {
-    int32_t bit;
-
-    /* This check is necessary to avoid undefined behavior when negating x
-     * below.  I'm a bit murky on the spec here, but this may assume two's
-     * complement integer storage, which I believe isn't mandated.
-     * FIXME: is there a more portable overflow check?
-     */
-    if(x == INT32_MIN)
-        return 1;
-
-    if(x < 0)
-        x = -x;
+    uint32_t bit;
 
     for(bit = 1; bit; bit <<= 1)
     {
@@ -301,8 +290,11 @@ static int _bmp_Validate(_bmp_read_context * p_ctx)
         if(p_ctx->header.magic[0] != 0x42 /* 'B' */) break;
         if(p_ctx->header.magic[1] != 0x4d /* 'M' */) break;
 
-        /* This INT32_MIN check is again here to avoid undefined behavior when
-         * negating the height below.  See the note in _bmp_IsPowerOf2.
+        /* The INT32_MIN check is necessary to avoid undefined behavior when
+         * negating height below.  I'm a bit murky on the spec here, but this
+         * may assume two's complement integer storage, which I believe isn't
+         * mandated.
+         * FIXME: is there a more portable overflow check?
          */
         if(p_ctx->info.width <= 0 ||
            p_ctx->info.height == 0 || p_ctx->info.height == INT32_MIN) break;
@@ -329,6 +321,9 @@ static int _bmp_Validate(_bmp_read_context * p_ctx)
 
         if(!(p_ctx->flags & BMPREAD_ANY_SIZE))
         {
+            /* Both of these values have been checked against being negative
+             * above, and thus it's safe to pass them on as uint32_t.
+             */
             if(!_bmp_IsPowerOf2(p_ctx->info.width)) break;
             if(!_bmp_IsPowerOf2(p_ctx->lines))      break;
         }
