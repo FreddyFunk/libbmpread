@@ -2,6 +2,7 @@ Changes currently in git
 ------------------------
 
 * Added basic unit test suite.
+* Even less implementation-defined behavior.
 
 2.0 (2016 Apr. 24)
 ------------------
