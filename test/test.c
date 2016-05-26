@@ -34,9 +34,9 @@ static const char * const test_data = "./test.data";
 
 static void test_ReadLittleUint32(void)
 {
-    uint32_t a;
-    uint32_t b;
-    uint32_t c;
+    uint32_t a = 0;
+    uint32_t b = 0;
+    uint32_t c = 0;
     FILE * fp = fopen(test_data, "rb");
 
     /* Too bad the assertions won't tell you which value failed.  I suggest
@@ -54,9 +54,9 @@ static void test_ReadLittleUint32(void)
 
 static void test_ReadLittleInt32(void)
 {
-    int32_t a;
-    int32_t b;
-    int32_t c;
+    int32_t a = 0;
+    int32_t b = 0;
+    int32_t c = 0;
     FILE * fp = fopen(test_data, "rb");
 
     assert(_bmp_ReadLittleInt32(&a, fp));
@@ -71,11 +71,11 @@ static void test_ReadLittleInt32(void)
 
 static void test_ReadLittleUint16(void)
 {
-    uint16_t a;
-    uint16_t b;
-    uint16_t c;
-    uint16_t d;
-    uint16_t e;
+    uint16_t a = 0;
+    uint16_t b = 0;
+    uint16_t c = 0;
+    uint16_t d = 0;
+    uint16_t e = 0;
     FILE * fp = fopen(test_data, "rb");
 
     assert(_bmp_ReadLittleUint16(&a, fp));
@@ -94,15 +94,15 @@ static void test_ReadLittleUint16(void)
 
 static void test_ReadUint8(void)
 {
-    uint8_t a;
-    uint8_t b;
-    uint8_t c;
-    uint8_t d;
-    uint8_t e;
-    uint8_t f;
-    uint8_t g;
-    uint8_t h;
-    uint8_t i;
+    uint8_t a = 0;
+    uint8_t b = 0;
+    uint8_t c = 0;
+    uint8_t d = 0;
+    uint8_t e = 0;
+    uint8_t f = 0;
+    uint8_t g = 0;
+    uint8_t h = 0;
+    uint8_t i = 0;
     FILE * fp = fopen(test_data, "rb");
 
     assert(_bmp_ReadUint8(&a, fp));
