@@ -264,13 +264,17 @@ static size_t _bmp_GetLineLength(size_t width, size_t bpp)
     size_t pad_bits; /* number of padding bits to make bits divisible by 32 */
 
     bits = width * bpp;
-    pad_bits = 32 - (bits & 0x1f); /* bits & 0x1f == bits % 32 */
+    pad_bits = (32 - (bits & 0x1f)) & 0x1f; /* x & 0x1f == x % 32 */
 
-    /* If it's not already dword aligned, add pad_bits to it: */
-    if(pad_bits < 32)
-        bits += pad_bits;
+    /* Check for overflow, in both the above multiplication and the below
+     * addition.  It's well defined to do this in any order relative to the
+     * operations themselves, so we combine the checks into one if.  bpp has
+     * been checked for being nonzero elsewhere, so it's safe to divide by.
+     */
+    if(width > SIZE_MAX / bpp || SIZE_MAX - bits < pad_bits)
+        return 0;
 
-    return bits/8; /* convert to bytes */
+    return (bits + pad_bits) / 8; /* convert to bytes */
 }
 
 /* Reads and validates the bitmap header metadata from the context's file
@@ -311,6 +315,8 @@ static int _bmp_Validate(_bmp_read_context * p_ctx)
 
         p_ctx->file_line_len = _bmp_GetLineLength(p_ctx->info.width,
                                                   p_ctx->info.bits);
+        if(p_ctx->file_line_len == 0) break;
+
 
         /* FIXME: ensure that converting int32_t => size_t here won't overflow,
          * which could be the case for 16-bit platforms.
@@ -318,6 +324,7 @@ static int _bmp_Validate(_bmp_read_context * p_ctx)
         p_ctx->rgb_line_len = ((p_ctx->flags & BMPREAD_BYTE_ALIGN) ?
                                (size_t)p_ctx->info.width * 3 :
                                _bmp_GetLineLength(p_ctx->info.width, 24));
+        if(p_ctx->rgb_line_len == 0)  break;
 
         if(!(p_ctx->flags & BMPREAD_ANY_SIZE))
         {
