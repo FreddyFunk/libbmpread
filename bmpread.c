@@ -366,8 +366,10 @@ static int _bmp_Validate(_bmp_read_context * p_ctx)
  * (p_rgb_end), a pointer to the source scan line of file data (p_file), and a
  * pointer to a palette (not used in this case).
  */
-static void _bmp_Decode24(uint8_t * p_rgb, uint8_t * p_rgb_end,
-                          uint8_t * p_file, _bmp_palette_entry * palette)
+static void _bmp_Decode24(uint8_t * p_rgb,
+                          const uint8_t * p_rgb_end,
+                          const uint8_t * p_file,
+                          const _bmp_palette_entry * palette)
 {
     while(p_rgb < p_rgb_end)
     {
@@ -383,8 +385,10 @@ static void _bmp_Decode24(uint8_t * p_rgb, uint8_t * p_rgb_end,
 
 /* Same as _bmp_Decode24, but for 8 bit palette data.
  */
-static void _bmp_Decode8(uint8_t * p_rgb, uint8_t * p_rgb_end,
-                         uint8_t * p_file, _bmp_palette_entry * palette)
+static void _bmp_Decode8(uint8_t * p_rgb,
+                         const uint8_t * p_rgb_end,
+                         const uint8_t * p_file,
+                         const _bmp_palette_entry * palette)
 {
     while(p_rgb < p_rgb_end)
     {
@@ -396,8 +400,10 @@ static void _bmp_Decode8(uint8_t * p_rgb, uint8_t * p_rgb_end,
 
 /* Same as _bmp_Decode24, but for 4 bit palette data.
  */
-static void _bmp_Decode4(uint8_t * p_rgb, uint8_t * p_rgb_end,
-                         uint8_t * p_file, _bmp_palette_entry * palette)
+static void _bmp_Decode4(uint8_t * p_rgb,
+                         const uint8_t * p_rgb_end,
+                         const uint8_t * p_file,
+                         const _bmp_palette_entry * palette)
 {
     unsigned int lookup;
 
@@ -422,8 +428,10 @@ static void _bmp_Decode4(uint8_t * p_rgb, uint8_t * p_rgb_end,
 
 /* Same as _bmp_Decode24, but for monochrome palette data.
  */
-static void _bmp_Decode1(uint8_t * p_rgb, uint8_t * p_rgb_end,
-                         uint8_t * p_file, _bmp_palette_entry * palette)
+static void _bmp_Decode1(uint8_t * p_rgb,
+                         const uint8_t * p_rgb_end,
+                         const uint8_t * p_file,
+                         const _bmp_palette_entry * palette)
 {
     unsigned int bit;
     unsigned int lookup;
@@ -448,8 +456,8 @@ static void _bmp_Decode1(uint8_t * p_rgb, uint8_t * p_rgb_end,
  */
 static int _bmp_Decode(_bmp_read_context * p_ctx)
 {
-    void (* decoder)(uint8_t *, uint8_t *, uint8_t *,
-                     _bmp_palette_entry *) = NULL;
+    void (* decoder)(uint8_t *, const uint8_t *, const uint8_t *,
+                     const _bmp_palette_entry *) = NULL;
 
     uint8_t * p_rgb;      /* pointer to current scan line in output buffer */
     uint8_t * p_rgb_end;  /* end marker for output buffer */
