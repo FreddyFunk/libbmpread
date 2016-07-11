@@ -399,11 +399,11 @@ static void _bmp_Decode8(uint8_t * p_rgb, uint8_t * p_rgb_end,
 static void _bmp_Decode4(uint8_t * p_rgb, uint8_t * p_rgb_end,
                          uint8_t * p_file, _bmp_palette_entry * palette)
 {
-    int lookup;
+    unsigned int lookup;
 
     while(p_rgb < p_rgb_end)
     {
-        lookup = (*p_file & 0xf0) >> 4;
+        lookup = (*p_file & 0xf0U) >> 4;
 
         *p_rgb++ = palette[lookup].red;
         *p_rgb++ = palette[lookup].green;
@@ -411,7 +411,7 @@ static void _bmp_Decode4(uint8_t * p_rgb, uint8_t * p_rgb_end,
 
         if(p_rgb < p_rgb_end)
         {
-            lookup = *p_file++ & 0x0f;
+            lookup = *p_file++ & 0x0fU;
 
             *p_rgb++ = palette[lookup].red;
             *p_rgb++ = palette[lookup].green;
@@ -425,14 +425,14 @@ static void _bmp_Decode4(uint8_t * p_rgb, uint8_t * p_rgb_end,
 static void _bmp_Decode1(uint8_t * p_rgb, uint8_t * p_rgb_end,
                          uint8_t * p_file, _bmp_palette_entry * palette)
 {
-    int shift;
-    int lookup;
+    unsigned int bit;
+    unsigned int lookup;
 
     while(p_rgb < p_rgb_end)
     {
-        for(shift = 7; shift >= 0 && p_rgb < p_rgb_end; --shift)
+        for(bit = 0; bit < 8 && p_rgb < p_rgb_end; bit++)
         {
-            lookup = (*p_file >> shift) & 1;
+            lookup = (*p_file >> (7 - bit)) & 1;
 
             *p_rgb++ = palette[lookup].red;
             *p_rgb++ = palette[lookup].green;
