@@ -1,8 +1,11 @@
-Changes currently in git
-------------------------
+2.1 (2016 Jul. 18)
+------------------
 
 * Added basic unit test suite.
-* Even less implementation-defined behavior.
+* Even less undefined and implementation-defined behavior.  I believe that
+  libbmpread will properly fail with error on maliciously crafted files that
+  could before have led to buffer overruns or other undesirable outcomes.
+* Some internal functions have been renamed or shuffled around.
 
 2.0 (2016 Apr. 24)
 ------------------
