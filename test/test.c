@@ -42,12 +42,12 @@ static void test_ReadLittleUint32(void)
     /* Too bad the assertions won't tell you which value failed.  I suggest
      * re-running the failed binary under gdb.
      */
-    assert(_bmp_ReadLittleUint32(&a, fp));
-    assert(_bmp_ReadLittleUint32(&b, fp));
+    assert(ReadLittleUint32(&a, fp));
+    assert(ReadLittleUint32(&b, fp));
     assert(a == UINT32_C(0x04030201));
     assert(b == UINT32_C(0x80706050));
 
-    assert(!_bmp_ReadLittleUint32(&c, fp));
+    assert(!ReadLittleUint32(&c, fp));
 
     fclose(fp);
 }
@@ -59,12 +59,12 @@ static void test_ReadLittleInt32(void)
     int32_t c = 0;
     FILE * fp = fopen(test_data, "rb");
 
-    assert(_bmp_ReadLittleInt32(&a, fp));
-    assert(_bmp_ReadLittleInt32(&b, fp));
+    assert(ReadLittleInt32(&a, fp));
+    assert(ReadLittleInt32(&b, fp));
     assert(a == INT32_C(   67305985));
     assert(b == INT32_C(-2140118960));
 
-    assert(!_bmp_ReadLittleInt32(&c, fp));
+    assert(!ReadLittleInt32(&c, fp));
 
     fclose(fp);
 }
@@ -78,16 +78,16 @@ static void test_ReadLittleUint16(void)
     uint16_t e = 0;
     FILE * fp = fopen(test_data, "rb");
 
-    assert(_bmp_ReadLittleUint16(&a, fp));
-    assert(_bmp_ReadLittleUint16(&b, fp));
-    assert(_bmp_ReadLittleUint16(&c, fp));
-    assert(_bmp_ReadLittleUint16(&d, fp));
+    assert(ReadLittleUint16(&a, fp));
+    assert(ReadLittleUint16(&b, fp));
+    assert(ReadLittleUint16(&c, fp));
+    assert(ReadLittleUint16(&d, fp));
     assert(a == UINT16_C(0x0201));
     assert(b == UINT16_C(0x0403));
     assert(c == UINT16_C(0x6050));
     assert(d == UINT16_C(0x8070));
 
-    assert(!_bmp_ReadLittleUint16(&e, fp));
+    assert(!ReadLittleUint16(&e, fp));
 
     fclose(fp);
 }
@@ -105,14 +105,14 @@ static void test_ReadUint8(void)
     uint8_t i = 0;
     FILE * fp = fopen(test_data, "rb");
 
-    assert(_bmp_ReadUint8(&a, fp));
-    assert(_bmp_ReadUint8(&b, fp));
-    assert(_bmp_ReadUint8(&c, fp));
-    assert(_bmp_ReadUint8(&d, fp));
-    assert(_bmp_ReadUint8(&e, fp));
-    assert(_bmp_ReadUint8(&f, fp));
-    assert(_bmp_ReadUint8(&g, fp));
-    assert(_bmp_ReadUint8(&h, fp));
+    assert(ReadUint8(&a, fp));
+    assert(ReadUint8(&b, fp));
+    assert(ReadUint8(&c, fp));
+    assert(ReadUint8(&d, fp));
+    assert(ReadUint8(&e, fp));
+    assert(ReadUint8(&f, fp));
+    assert(ReadUint8(&g, fp));
+    assert(ReadUint8(&h, fp));
     assert(a == UINT8_C(0x01));
     assert(b == UINT8_C(0x02));
     assert(c == UINT8_C(0x03));
@@ -122,7 +122,7 @@ static void test_ReadUint8(void)
     assert(g == UINT8_C(0x70));
     assert(h == UINT8_C(0x80));
 
-    assert(!_bmp_ReadUint8(&i, fp));
+    assert(!ReadUint8(&i, fp));
 
     fclose(fp);
 }
@@ -132,7 +132,7 @@ static void test_IsPowerOf2(void)
     uint32_t i;
     uint32_t j;
 
-    assert(!_bmp_IsPowerOf2(0));
+    assert(!IsPowerOf2(0));
 
     /* Because the values passed to this come from int32_ts which are checked
      * against being negative, the max value necessary to test here is
@@ -142,17 +142,17 @@ static void test_IsPowerOf2(void)
      */
     for(i = 1; i <= (uint32_t)INT32_MAX / 2; i *= 2)
     {
-        assert(_bmp_IsPowerOf2(i));
+        assert(IsPowerOf2(i));
         for(j = i + 1; j < i * 2; j++)
-            assert(!_bmp_IsPowerOf2(j));
+            assert(!IsPowerOf2(j));
     }
 
-    assert(_bmp_IsPowerOf2(i));
+    assert(IsPowerOf2(i));
     if(i < (uint32_t)INT32_MAX)
     {
         for(j = i + 1; j < (uint32_t)INT32_MAX; j++)
-            assert(!_bmp_IsPowerOf2(j));
-        assert(!_bmp_IsPowerOf2(INT32_MAX));
+            assert(!IsPowerOf2(j));
+        assert(!IsPowerOf2(INT32_MAX));
     }
 }
 
@@ -160,27 +160,27 @@ static void test_GetLineLength(void)
 {
     size_t i;
     for(i = 1; i <= 32; i++)
-        assert(_bmp_GetLineLength(i, 1) == 4);
-    assert(_bmp_GetLineLength(33, 1) == 8);
+        assert(GetLineLength(i, 1) == 4);
+    assert(GetLineLength(33, 1) == 8);
     /* Etc.  TODO: test near SIZE_MAX. */
 
     for(i = 1; i <= 8; i++)
-        assert(_bmp_GetLineLength(i, 4) == 4);
-    assert(_bmp_GetLineLength(9, 4) == 8);
+        assert(GetLineLength(i, 4) == 4);
+    assert(GetLineLength(9, 4) == 8);
 
     for(i = 1; i <= 4; i++)
-        assert(_bmp_GetLineLength(i, 8) == 4);
-    assert(_bmp_GetLineLength(5, 8) == 8);
+        assert(GetLineLength(i, 8) == 4);
+    assert(GetLineLength(5, 8) == 8);
 
-    assert(_bmp_GetLineLength(1, 24) ==  4);
-    assert(_bmp_GetLineLength(2, 24) ==  8);
-    assert(_bmp_GetLineLength(3, 24) == 12);
-    assert(_bmp_GetLineLength(4, 24) == 12);
-    assert(_bmp_GetLineLength(5, 24) == 16);
-    assert(_bmp_GetLineLength(6, 24) == 20);
-    assert(_bmp_GetLineLength(7, 24) == 24);
-    assert(_bmp_GetLineLength(8, 24) == 24);
-    assert(_bmp_GetLineLength(9, 24) == 28);
+    assert(GetLineLength(1, 24) ==  4);
+    assert(GetLineLength(2, 24) ==  8);
+    assert(GetLineLength(3, 24) == 12);
+    assert(GetLineLength(4, 24) == 12);
+    assert(GetLineLength(5, 24) == 16);
+    assert(GetLineLength(6, 24) == 20);
+    assert(GetLineLength(7, 24) == 24);
+    assert(GetLineLength(8, 24) == 24);
+    assert(GetLineLength(9, 24) == 28);
     /* Etc. */
 }
 
@@ -188,12 +188,12 @@ int main(int argc, char * argv[])
 {
     printf("%s: running tests\n", argv[0]);
 
-#define TEST(x) do                                 \
-{                                                  \
-    printf("%s: testing _bmp_%s...", argv[0], #x); \
-    fflush(stdout);                                \
-    test_##x();                                    \
-    printf("OK\n");                                \
+#define TEST(x) do                            \
+{                                             \
+    printf("%s: testing %s...", argv[0], #x); \
+    fflush(stdout);                           \
+    test_##x();                               \
+    printf("OK\n");                           \
 } while(0)
 
     TEST(ReadLittleUint32);

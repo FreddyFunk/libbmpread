@@ -60,7 +60,7 @@
  * returns nonzero if the two size_ts can be added without wrapping, or 0 if
  * the result would wrap.
  */
-static int _bmp_CanAdd(size_t a, size_t b)
+static int CanAdd(size_t a, size_t b)
 {
     return a <= SIZE_MAX - b;
 }
@@ -69,7 +69,7 @@ static int _bmp_CanAdd(size_t a, size_t b)
  * if the result would wrap.  b must not be 0 (we don't even check here since
  * everything we pass in will have been checked before).
  */
-static int _bmp_CanMultiply(size_t a, size_t b)
+static int CanMultiply(size_t a, size_t b)
 {
     return a <= SIZE_MAX / b;
 }
@@ -78,7 +78,7 @@ static int _bmp_CanMultiply(size_t a, size_t b)
  * data, which is always the case on 32 bit systems and higher, or 0 if such a
  * conversion would lose data, as could happen on 16 bit systems.
  */
-static int _bmp_CanMakeSizeT(uint32_t x)
+static int CanMakeSizeT(uint32_t x)
 {
     /* The preprocessor guard is there to prevent a warning about the condition
      * inside being true by definition on systems where size_t is at least 32
@@ -97,7 +97,7 @@ static int _bmp_CanMakeSizeT(uint32_t x)
 /* Returns nonzero if the uint32_t can be converted to a long without losing
  * data, or 0 if the conversion would lose data.
  */
-static int _bmp_CanMakeLong(uint32_t x)
+static int CanMakeLong(uint32_t x)
 {
 #if UINT32_MAX > LONG_MAX
     if(x > LONG_MAX) return 0;
@@ -111,7 +111,7 @@ static int _bmp_CanMakeLong(uint32_t x)
  * work because its positive value isn't representable inside an int32_t (given
  * two's complement).
  */
-static int _bmp_CanNegate(int32_t x)
+static int CanNegate(int32_t x)
 {
     return x != INT32_MIN;
 }
@@ -120,7 +120,7 @@ static int _bmp_CanNegate(int32_t x)
  * uint32_t pointed to by dest in the host's byte order.  Returns 0 on EOF or
  * nonzero on success.
  */
-static int _bmp_ReadLittleBytes(uint32_t * dest, int bytes, FILE * fp)
+static int ReadLittleBytes(uint32_t * dest, int bytes, FILE * fp)
 {
     uint32_t shift = 0;
 
@@ -141,12 +141,12 @@ static int _bmp_ReadLittleBytes(uint32_t * dest, int bytes, FILE * fp)
 /* Reads a little-endian uint32_t from fp and stores the result in *dest in the
  * host's byte order.  Returns 0 on EOF or nonzero on success.
  */
-#define _bmp_ReadLittleUint32(dest, fp) _bmp_ReadLittleBytes(dest, 4, fp)
+#define ReadLittleUint32(dest, fp) ReadLittleBytes(dest, 4, fp)
 
 /* Reads a little-endian int32_t from fp and stores the result in *dest in the
  * host's byte order.  Returns 0 on EOF or nonzero on success.
  */
-static int _bmp_ReadLittleInt32(int32_t * dest, FILE * fp)
+static int ReadLittleInt32(int32_t * dest, FILE * fp)
 {
     /* I *believe* casting unsigned -> signed is implementation-defined when
      * the unsigned value is out of range for the signed type, which would be
@@ -155,14 +155,14 @@ static int _bmp_ReadLittleInt32(int32_t * dest, FILE * fp)
      * without running into undefined/implementation-defined behavior.  I
      * think.
      */
-    union _bmp_int32_signedness_swap
+    union int32_signedness_swap
     {
         uint32_t uint32;
         int32_t  int32;
 
     } t;
 
-    if(!_bmp_ReadLittleBytes(&t.uint32, 4, fp)) return 0;
+    if(!ReadLittleBytes(&t.uint32, 4, fp)) return 0;
     *dest = t.int32;
     return 1;
 }
@@ -170,10 +170,10 @@ static int _bmp_ReadLittleInt32(int32_t * dest, FILE * fp)
 /* Reads a little-endian uint16_t from fp and stores the result in *dest in the
  * host's byte order.  Returns 0 on EOF or nonzero n success.
  */
-static int _bmp_ReadLittleUint16(uint16_t * dest, FILE * fp)
+static int ReadLittleUint16(uint16_t * dest, FILE * fp)
 {
     uint32_t t;
-    if(!_bmp_ReadLittleBytes(&t, 2, fp)) return 0;
+    if(!ReadLittleBytes(&t, 2, fp)) return 0;
     *dest = (uint16_t)t;
     return 1;
 }
@@ -181,7 +181,7 @@ static int _bmp_ReadLittleUint16(uint16_t * dest, FILE * fp)
 /* Reads a uint8_t from fp and stores the result in *dest.  Returns 0 on EOF or
  * nonzero on success.
  */
-static int _bmp_ReadUint8(uint8_t * dest, FILE * fp)
+static int ReadUint8(uint8_t * dest, FILE * fp)
 {
     int byte;
     if((byte = fgetc(fp)) == EOF) return 0;
@@ -191,88 +191,86 @@ static int _bmp_ReadUint8(uint8_t * dest, FILE * fp)
 
 /* Bitmap file header, including magic bytes.
  */
-typedef struct _bmp_header
+typedef struct bmp_header
 {
-    uint8_t  magic[2];    /* magic bytes 'B' and 'M' */
-    uint32_t file_size;   /* size of whole file */
-    uint32_t unused;      /* should be 0 */
-    uint32_t data_offset; /* offset from beginning of file to bitmap data */
+    uint8_t  magic[2];    /* Magic bytes 'B' and 'M'. */
+    uint32_t file_size;   /* Size of whole file. */
+    uint32_t unused;      /* Should be 0. */
+    uint32_t data_offset; /* Offset from beginning of file to bitmap data. */
 
-} _bmp_header;
+} bmp_header;
 
 /* Reads a bitmap header from fp into header.  Returns 0 on EOF or nonzero on
  * success.
  */
-static int _bmp_ReadHeader(_bmp_header * header, FILE * fp)
+static int ReadHeader(bmp_header * header, FILE * fp)
 {
-    if(!_bmp_ReadUint8(       &header->magic[0],    fp)) return 0;
-    if(!_bmp_ReadUint8(       &header->magic[1],    fp)) return 0;
-    if(!_bmp_ReadLittleUint32(&header->file_size,   fp)) return 0;
-    if(!_bmp_ReadLittleUint32(&header->unused,      fp)) return 0;
-    if(!_bmp_ReadLittleUint32(&header->data_offset, fp)) return 0;
+    if(!ReadUint8(       &header->magic[0],    fp)) return 0;
+    if(!ReadUint8(       &header->magic[1],    fp)) return 0;
+    if(!ReadLittleUint32(&header->file_size,   fp)) return 0;
+    if(!ReadLittleUint32(&header->unused,      fp)) return 0;
+    if(!ReadLittleUint32(&header->data_offset, fp)) return 0;
     return 1;
 }
 
 /* How many bytes in the file are occupied by a header, by definition in the
  * spec.  Note that even though our definition logically matches the spec's, C
  * struct padding/packing rules mean it might not be the same as
- * sizeof(_bmp_header).
+ * sizeof(bmp_header).
  */
-#define _BMP_HEADER_SIZE 14
+#define BMP_HEADER_SIZE 14
 
 /* Bitmap info struct: comes immediately after header and describes the image.
  */
-typedef struct _bmp_info
+typedef struct bmp_info
 {
-    uint32_t info_size;   /* size of info struct (is >sizeof(_bmp_info)) */
-    int32_t  width;       /* width of image */
-    int32_t  height;      /* height (< 0 means right-side up) */
-    uint16_t planes;      /* planes (should be 1) */
-    uint16_t bits;        /* number of bits (1, 4, 8, 16, 24, or 32) */
-    uint32_t compression; /* 0 = none, 1 = 8-bit RLE, 2 = 4-bit RLE */
+    uint32_t info_size;   /* Size of info struct (> sizeof(bmp_info)). */
+    int32_t  width;       /* Width of image. */
+    int32_t  height;      /* Height (< 0 means right-side up). */
+    uint16_t planes;      /* Planes (should be 1). */
+    uint16_t bits;        /* Number of bits (1, 4, 8, 16, 24, or 32). */
+    uint32_t compression; /* 0 = none, 1 = 8-bit RLE, 2 = 4-bit RLE, etc. */
 
     /* There are other fields in the actual file info, but we don't need 'em.
      */
 
-} _bmp_info;
+} bmp_info;
 
 /* Reads bitmap metadata from fp into info.  Returns 0 on EOF or nonzero on
  * success.
  */
-static int _bmp_ReadInfo(_bmp_info * info, FILE * fp)
+static int ReadInfo(bmp_info * info, FILE * fp)
 {
-    if(!_bmp_ReadLittleUint32(&info->info_size,   fp)) return 0;
-    if(!_bmp_ReadLittleInt32( &info->width,       fp)) return 0;
-    if(!_bmp_ReadLittleInt32( &info->height,      fp)) return 0;
-    if(!_bmp_ReadLittleUint16(&info->planes,      fp)) return 0;
-    if(!_bmp_ReadLittleUint16(&info->bits,        fp)) return 0;
-    if(!_bmp_ReadLittleUint32(&info->compression, fp)) return 0;
+    if(!ReadLittleUint32(&info->info_size,   fp)) return 0;
+    if(!ReadLittleInt32( &info->width,       fp)) return 0;
+    if(!ReadLittleInt32( &info->height,      fp)) return 0;
+    if(!ReadLittleUint16(&info->planes,      fp)) return 0;
+    if(!ReadLittleUint16(&info->bits,        fp)) return 0;
+    if(!ReadLittleUint32(&info->compression, fp)) return 0;
     return 1;
 }
 
 /* A single color entry in the palette, in file order (BGR + one unused byte).
  */
-typedef struct _bmp_palette_entry
+typedef struct bmp_palette_entry
 {
     uint8_t blue;
     uint8_t green;
     uint8_t red;
     uint8_t unused;
 
-} _bmp_palette_entry;
+} bmp_palette_entry;
 
 /* How many bytes in the file are occupied by a palette entry, by definition in
  * the spec (and again note that it might not be the same as
- * sizeof(_bmp_palette_entry), even if we match).
+ * sizeof(bmp_palette_entry), even if we match).
  */
-#define _BMP_PALETTE_ENTRY_SIZE 4
+#define BMP_PALETTE_ENTRY_SIZE 4
 
 /* Reads the given number of colors from fp into the palette array.  Returns 0
  * on EOF or nonzero on success.
  */
-static int _bmp_ReadPalette(_bmp_palette_entry * palette,
-                            size_t colors,
-                            FILE * fp)
+static int ReadPalette(bmp_palette_entry * palette, size_t colors, FILE * fp)
 {
     /* This isn't the guaranteed-fastest way to implement this, but it should
      * perform quite well in practice due to compiler optimization and stdio
@@ -302,13 +300,13 @@ static int _bmp_ReadPalette(_bmp_palette_entry * palette,
  * this makes any assumptions about unsigned integer storage that aren't
  * mandated by the spec.
  */
-static int _bmp_IsPowerOf2(uint32_t x)
+static int IsPowerOf2(uint32_t x)
 {
     uint32_t bit;
 
     for(bit = 1; bit; bit <<= 1)
     {
-        /* When we find a bit, return whether no other bits are set: */
+        /* When we find a bit, return whether no other bits are set. */
         if(x & bit)
             return !(x & ~bit);
     }
@@ -322,10 +320,10 @@ static int _bmp_IsPowerOf2(uint32_t x)
  * bytes, then padded to the next DWORD).  bpp is BITS per pixel, not bytes.
  * Returns 0 in case of overflow.
  */
-static size_t _bmp_GetLineLength(size_t width, size_t bpp)
+static size_t GetLineLength(size_t width, size_t bpp)
 {
-    size_t bits;     /* number of bits in a line */
-    size_t pad_bits; /* number of padding bits to make bits divisible by 32 */
+    size_t bits;     /* Number of bits in a line. */
+    size_t pad_bits; /* Number of padding bits to make bits divisible by 32. */
 
     bits = width * bpp;
     pad_bits = (32 - (bits & 0x1f)) & 0x1f; /* x & 0x1f == x % 32 */
@@ -335,40 +333,41 @@ static size_t _bmp_GetLineLength(size_t width, size_t bpp)
      * operations themselves (since size_t is unsigned), so we combine the
      * checks into one if.  bpp has been checked for being nonzero elsewhere.
      */
-    if(!_bmp_CanMultiply(width, bpp) || !_bmp_CanAdd(bits, pad_bits)) return 0;
+    if(!CanMultiply(width, bpp) || !CanAdd(bits, pad_bits)) return 0;
 
-    return (bits + pad_bits) / 8; /* convert to bytes */
+    /* Convert to bytes. */
+    return (bits + pad_bits) / 8;
 }
 
 /* Context shared between the below functions.
  */
-typedef struct _bmp_read_context
+typedef struct read_context
 {
-    unsigned int         flags;         /* flags passed to bmpread */
-    FILE               * fp;            /* file pointer */
-    _bmp_header          header;        /* file header */
-    _bmp_info            info;          /* file info */
-    int32_t              lines;         /* how many scan lines (abs(height)) */
-    size_t               file_line_len; /* how many bytes each scan line is */
-    size_t               rgb_line_len;  /* bytes in each output line */
-    _bmp_palette_entry * palette;       /* enough entries for our bit depth */
-    uint8_t            * file_data;     /* a line of data in the file */
-    uint8_t            * rgb_data;      /* rgb data output buffer */
+    unsigned int        flags;         /* Flags passed to bmpread. */
+    FILE              * fp;            /* File pointer. */
+    bmp_header          header;        /* File header. */
+    bmp_info            info;          /* File info. */
+    int32_t             lines;         /* How many scan lines (abs(height)). */
+    size_t              file_line_len; /* How many bytes each scan line is. */
+    size_t              rgb_line_len;  /* Bytes in each output line. */
+    bmp_palette_entry * palette;       /* Enough entries for our bit depth. */
+    uint8_t           * file_data;     /* A line of data in the file. */
+    uint8_t           * rgb_data;      /* Rgb data output buffer. */
 
-} _bmp_read_context;
+} read_context;
 
 /* Reads and validates the bitmap header metadata from the context's file
  * object.  Assumes the file pointer is at the start of the file.  Returns 1 if
  * ok or 0 if error or invalid file.
  */
-static int _bmp_Validate(_bmp_read_context * p_ctx)
+static int Validate(read_context * p_ctx)
 {
     do
     {
-        if(!_bmp_ReadHeader(&p_ctx->header, p_ctx->fp)) break;
-        if(!_bmp_ReadInfo(  &p_ctx->info,   p_ctx->fp)) break;
+        if(!ReadHeader(&p_ctx->header, p_ctx->fp)) break;
+        if(!ReadInfo(  &p_ctx->info,   p_ctx->fp)) break;
 
-        /* Some basic validation: */
+        /* Some basic validation. */
         if(p_ctx->header.magic[0] != 0x42 /* 'B' */) break;
         if(p_ctx->header.magic[1] != 0x4d /* 'M' */) break;
 
@@ -380,15 +379,15 @@ static int _bmp_Validate(_bmp_read_context * p_ctx)
         if(p_ctx->info.bits != 1 && p_ctx->info.bits != 4 &&
            p_ctx->info.bits != 8 && p_ctx->info.bits != 24) break;
 
-        if(!_bmp_CanMakeSizeT(p_ctx->info.width)) break;
-        p_ctx->file_line_len = _bmp_GetLineLength(p_ctx->info.width,
-                                                  p_ctx->info.bits);
+        if(!CanMakeSizeT(p_ctx->info.width)) break;
+        p_ctx->file_line_len = GetLineLength(p_ctx->info.width,
+                                             p_ctx->info.bits);
         if(p_ctx->file_line_len == 0) break;
 
         /* This check happens outside the following if, where it would seem to
          * belong, because we make the same computation again in the future.
          */
-        if(!_bmp_CanMultiply(p_ctx->info.width, 3)) break;
+        if(!CanMultiply(p_ctx->info.width, 3)) break;
 
         if(p_ctx->flags & BMPREAD_BYTE_ALIGN)
         {
@@ -396,11 +395,11 @@ static int _bmp_Validate(_bmp_read_context * p_ctx)
         }
         else
         {
-            p_ctx->rgb_line_len = _bmp_GetLineLength(p_ctx->info.width, 24);
+            p_ctx->rgb_line_len = GetLineLength(p_ctx->info.width, 24);
             if(p_ctx->rgb_line_len == 0) break;
         }
 
-        if(!_bmp_CanNegate(p_ctx->info.height)) break;
+        if(!CanNegate(p_ctx->info.height)) break;
         p_ctx->lines = ((p_ctx->info.height < 0) ?
                         -p_ctx->info.height :
                          p_ctx->info.height);
@@ -410,37 +409,36 @@ static int _bmp_Validate(_bmp_read_context * p_ctx)
             /* Both of these values have been checked against being negative
              * above, and thus it's safe to pass them on as uint32_t.
              */
-            if(!_bmp_IsPowerOf2(p_ctx->info.width)) break;
-            if(!_bmp_IsPowerOf2(p_ctx->lines))      break;
+            if(!IsPowerOf2(p_ctx->info.width)) break;
+            if(!IsPowerOf2(p_ctx->lines))      break;
         }
 
-        /* Handle palettes: */
+        /* Handle palettes. */
         if(p_ctx->info.bits <= 8)
         {
             /* I believe C mandates that SIZE_MAX is at least 65535, so this
              * expression and the next are always safe.
              */
             size_t colors = 1 << (size_t)p_ctx->info.bits;
-            if(!(p_ctx->palette = (_bmp_palette_entry *)
-                 malloc(colors * _BMP_PALETTE_ENTRY_SIZE))) break;
+            if(!(p_ctx->palette = (bmp_palette_entry *)
+                 malloc(colors * BMP_PALETTE_ENTRY_SIZE))) break;
 
-            if(!_bmp_CanMakeLong(p_ctx->info.info_size)) break;
+            if(!CanMakeLong(p_ctx->info.info_size)) break;
 #if UINT32_MAX > LONG_MAX
-            if((long)p_ctx->info.info_size > LONG_MAX - _BMP_HEADER_SIZE)
-                break;
+            if((long)p_ctx->info.info_size > LONG_MAX - BMP_HEADER_SIZE) break;
 #endif
             if(fseek(p_ctx->fp,
-                     _BMP_HEADER_SIZE + (long)p_ctx->info.info_size,
-                     SEEK_SET))                                      break;
-            if(!_bmp_ReadPalette(p_ctx->palette, colors, p_ctx->fp)) break;
+                     BMP_HEADER_SIZE + (long)p_ctx->info.info_size,
+                     SEEK_SET))                                 break;
+            if(!ReadPalette(p_ctx->palette, colors, p_ctx->fp)) break;
         }
 
-        /* Set things up for decoding: */
+        /* Set things up for decoding. */
         if(!(p_ctx->file_data = (uint8_t *)
              malloc(p_ctx->file_line_len))) break;
 
-        if(!_bmp_CanMakeSizeT(p_ctx->lines))                      break;
-        if(!_bmp_CanMultiply( p_ctx->lines, p_ctx->rgb_line_len)) break;
+        if(!CanMakeSizeT(p_ctx->lines))                           break;
+        if(!CanMultiply( p_ctx->lines, p_ctx->rgb_line_len))      break;
         if(!(p_ctx->rgb_data = (uint8_t *)
              malloc((size_t)p_ctx->lines * p_ctx->rgb_line_len))) break;
 
@@ -455,10 +453,10 @@ static int _bmp_Validate(_bmp_read_context * p_ctx)
  * (p_rgb_end), a pointer to the source scan line of file data (p_file), and a
  * pointer to a palette (not used in this case).
  */
-static void _bmp_Decode24(uint8_t * p_rgb,
-                          const uint8_t * p_rgb_end,
-                          const uint8_t * p_file,
-                          const _bmp_palette_entry * palette)
+static void Decode24(uint8_t * p_rgb,
+                     const uint8_t * p_rgb_end,
+                     const uint8_t * p_file,
+                     const bmp_palette_entry * palette)
 {
     while(p_rgb < p_rgb_end)
     {
@@ -471,12 +469,12 @@ static void _bmp_Decode24(uint8_t * p_rgb,
     (void)palette; /* Unused. */
 }
 
-/* Same as _bmp_Decode24, but for 8 bit palette data.
+/* Same as Decode24, but for 8 bit palette data.
  */
-static void _bmp_Decode8(uint8_t * p_rgb,
-                         const uint8_t * p_rgb_end,
-                         const uint8_t * p_file,
-                         const _bmp_palette_entry * palette)
+static void Decode8(uint8_t * p_rgb,
+                    const uint8_t * p_rgb_end,
+                    const uint8_t * p_file,
+                    const bmp_palette_entry * palette)
 {
     while(p_rgb < p_rgb_end)
     {
@@ -486,12 +484,12 @@ static void _bmp_Decode8(uint8_t * p_rgb,
     }
 }
 
-/* Same as _bmp_Decode24, but for 4 bit palette data.
+/* Same as Decode24, but for 4 bit palette data.
  */
-static void _bmp_Decode4(uint8_t * p_rgb,
-                         const uint8_t * p_rgb_end,
-                         const uint8_t * p_file,
-                         const _bmp_palette_entry * palette)
+static void Decode4(uint8_t * p_rgb,
+                    const uint8_t * p_rgb_end,
+                    const uint8_t * p_file,
+                    const bmp_palette_entry * palette)
 {
     unsigned int lookup;
 
@@ -514,12 +512,12 @@ static void _bmp_Decode4(uint8_t * p_rgb,
     }
 }
 
-/* Same as _bmp_Decode24, but for monochrome palette data.
+/* Same as Decode24, but for monochrome palette data.
  */
-static void _bmp_Decode1(uint8_t * p_rgb,
-                         const uint8_t * p_rgb_end,
-                         const uint8_t * p_file,
-                         const _bmp_palette_entry * palette)
+static void Decode1(uint8_t * p_rgb,
+                    const uint8_t * p_rgb_end,
+                    const uint8_t * p_file,
+                    const bmp_palette_entry * palette)
 {
     unsigned int bit;
     unsigned int lookup;
@@ -542,14 +540,14 @@ static void _bmp_Decode1(uint8_t * p_rgb,
 /* Selects an above decoder and runs it for each scan line of the file.
  * Returns 0 if there's an error or 1 if it's gravy.
  */
-static int _bmp_Decode(_bmp_read_context * p_ctx)
+static int Decode(read_context * p_ctx)
 {
     void (* decoder)(uint8_t *, const uint8_t *, const uint8_t *,
-                     const _bmp_palette_entry *) = NULL;
+                     const bmp_palette_entry *);
 
-    uint8_t * p_rgb;      /* pointer to current scan line in output buffer */
-    uint8_t * p_rgb_end;  /* end marker for output buffer */
-    uint8_t * p_line_end; /* pointer to end of current scan line in output */
+    uint8_t * p_rgb;      /* Pointer to current scan line in output buffer. */
+    uint8_t * p_rgb_end;  /* End marker for output buffer. */
+    uint8_t * p_line_end; /* Pointer to end of current scan line in output. */
 
     /* rgb_inc is an incrementor for p_rgb to advance it one scan line.  I'm
      * not exactly sure what the correct type for it would be, perhaps ssize_t,
@@ -591,14 +589,14 @@ static int _bmp_Decode(_bmp_read_context * p_ctx)
 
     switch(p_ctx->info.bits)
     {
-        case 24: decoder = _bmp_Decode24; break;
-        case 8:  decoder = _bmp_Decode8;  break;
-        case 4:  decoder = _bmp_Decode4;  break;
-        case 1:  decoder = _bmp_Decode1;  break;
+        case 24: decoder = Decode24; break;
+        case 8:  decoder = Decode8;  break;
+        case 4:  decoder = Decode4;  break;
+        case 1:  decoder = Decode1;  break;
         default: return 0;
     }
 
-    if(!_bmp_CanMakeLong(p_ctx->header.data_offset))          return 0;
+    if(!CanMakeLong(p_ctx->header.data_offset))               return 0;
     if(fseek(p_ctx->fp, p_ctx->header.data_offset, SEEK_SET)) return 0;
 
     while(p_rgb != p_rgb_end &&
@@ -618,7 +616,7 @@ static int _bmp_Decode(_bmp_read_context * p_ctx)
  * rgb_data if !leave_rgb_data (if the bitmap loads successfully, you want the
  * data to remain until THEY free it).
  */
-static void _bmp_FreeContext(_bmp_read_context * p_ctx, int leave_rgb_data)
+static void FreeContext(read_context * p_ctx, int leave_rgb_data)
 {
     if(p_ctx->fp)
         fclose(p_ctx->fp);
@@ -635,8 +633,8 @@ int bmpread(const char * bmp_file, unsigned int flags, bmpread_t * p_bmp_out)
 {
     int success = 0;
 
-    _bmp_read_context ctx;
-    memset(&ctx, 0, sizeof(_bmp_read_context));
+    read_context ctx;
+    memset(&ctx, 0, sizeof(read_context));
 
     do
     {
@@ -647,8 +645,8 @@ int bmpread(const char * bmp_file, unsigned int flags, bmpread_t * p_bmp_out)
         ctx.flags = flags;
 
         if(!(ctx.fp = fopen(bmp_file, "rb"))) break;
-        if(!_bmp_Validate(&ctx))              break;
-        if(!_bmp_Decode(&ctx))                break;
+        if(!Validate(&ctx))                   break;
+        if(!Decode(&ctx))                     break;
 
         /* Finally, make sure we can stuff these into ints.  I feel like this
          * is slightly justified by how it keeps the header definition dead
@@ -668,7 +666,7 @@ int bmpread(const char * bmp_file, unsigned int flags, bmpread_t * p_bmp_out)
         success = 1;
     } while(0);
 
-    _bmp_FreeContext(&ctx, success);
+    FreeContext(&ctx, success);
 
     return success;
 }
