@@ -23,6 +23,11 @@
 
 #include "bmpread.c"
 
+/* I use assert for simple testing here.  It's not great, because it can be
+ * hard to tell which value caused a failure, if the assertion occurs inside a
+ * loop, for example.  If you get a failed test and can't figure out exactly
+ * what caused it, I might suggest re-running the failed test binary under gdb.
+ */
 #include <assert.h>
 #include <limits.h>
 #include <stdint.h>
@@ -32,6 +37,63 @@
 static const char * const test_data = "./test.data";
 
 
+static void test_CanAdd(void)
+{
+    assert(CanAdd(0,        0));
+    assert(CanAdd(SIZE_MAX, 0));
+    assert(CanAdd(0, SIZE_MAX));
+
+    assert(!CanAdd(SIZE_MAX, SIZE_MAX));
+    assert(!CanAdd(SIZE_MAX,        1));
+    assert(!CanAdd(1,        SIZE_MAX));
+}
+
+static void test_CanMultiply(void)
+{
+    assert(CanMultiply(1,        1));
+    assert(CanMultiply(SIZE_MAX, 1));
+    assert(CanMultiply(1, SIZE_MAX));
+
+    assert(!CanMultiply(SIZE_MAX, SIZE_MAX));
+    assert(!CanMultiply(SIZE_MAX, 2));
+    assert(!CanMultiply(2,        SIZE_MAX));
+}
+
+static void test_CanMakeSizeT(void)
+{
+    assert(CanMakeSizeT(0));
+#if UINT32_MAX == SIZE_MAX
+    assert(CanMakeSizeT(UINT32_MAX));
+    assert(CanMakeSizeT(SIZE_MAX));
+#elif UINT32_MAX > SIZE_MAX
+    assert(!CanMakeSizeT(UINT32_MAX));
+    assert(CanMakeSizeT(SIZE_MAX));
+#else
+    assert(CanMakeSizeT(UINT32_MAX));
+#endif
+}
+
+static void test_CanMakeLong(void)
+{
+    assert(CanMakeLong(0));
+#if UINT32_MAX == LONG_MAX
+    assert(CanMakeLong(UINT32_MAX));
+    assert(CanMakeLong(LONG_MAX));
+#elif UINT32_MAX > LONG_MAX
+    assert(!CanMakeLong(UINT32_MAX));
+    assert(CanMakeLong(LONG_MAX));
+#else
+    assert(CanMakeLong(UINT32_MAX));
+#endif
+}
+
+static void test_CanNegate(void)
+{
+    assert(CanNegate(0));
+    assert(CanNegate(INT32_MAX));
+    assert(!CanNegate(INT32_MIN));
+}
+
 static void test_ReadLittleUint32(void)
 {
     uint32_t a = 0;
@@ -39,9 +101,6 @@ static void test_ReadLittleUint32(void)
     uint32_t c = 0;
     FILE * fp = fopen(test_data, "rb");
 
-    /* Too bad the assertions won't tell you which value failed.  I suggest
-     * re-running the failed binary under gdb.
-     */
     assert(ReadLittleUint32(&a, fp));
     assert(ReadLittleUint32(&b, fp));
     assert(a == UINT32_C(0x04030201));
@@ -196,6 +255,11 @@ int main(int argc, char * argv[])
     printf("OK\n");                           \
 } while(0)
 
+    TEST(CanAdd);
+    TEST(CanMultiply);
+    TEST(CanMakeSizeT);
+    TEST(CanMakeLong);
+    TEST(CanNegate);
     TEST(ReadLittleUint32);
     TEST(ReadLittleInt32);
     TEST(ReadLittleUint16);
