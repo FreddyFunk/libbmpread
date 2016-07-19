@@ -90,13 +90,16 @@ It should work in most environments--I believe there are only two assumptions
 the code makes that aren't guaranteed by the C standard: 1) `CHAR_BIT == 8`
 (note: if this is violated, compilation will fail), and 2) two's complement
 integer storage; deviations from these assumptions are extremely rare in the
-wild.  I've also made use of `<stdint.h>`, which is technically a C99 feature,
-but is common in practice even for non-compliant compilers.
+wild.  I've also made use of `<stdint.h>` and `ptrdiff_t`, which I believe are
+technically C99 features, but are common in practice even for non-compliant
+compilers.
 
-I've taken precautions to prevent some common bugs that can have security
-impact, such as integer overflows, but I haven't done a thorough audit, nor am
-I an expert at writing hardened "C/C++" code.  This means that libbmpread isn't
-guaranteed not to be rife with exploits.  Please only use it on trusted images.
+I've taken every precaution to prevent common bugs that can have security
+impact, such as integer overflows that might lead to buffer overruns.  I
+believe it's impossible to cause libbmpread to do anything besides properly
+load a file or fail with error, even on maliciously crafted files.  I haven't
+done a thorough audit, nor am I an expert at writing hardened "C/C++" code, so
+take my belief with a grain of salt.
 
 Tests
 -----
