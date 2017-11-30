@@ -230,6 +230,11 @@ typedef struct bmp_info
     uint16_t planes;      /* Planes (should be 1). */
     uint16_t bits;        /* Number of bits (1, 4, 8, 16, 24, or 32). */
     uint32_t compression; /* 0 = none, 1 = 8-bit RLE, 2 = 4-bit RLE, etc. */
+						  /* 32bits: Size of the raw bitmap data (including padding) */
+						  /* 64bits: Print resolution */
+						  /* 32bits: Number of colors in the palette */
+						  /* 32bits: 0 means all colors are important */
+	uint32_t channel_masks[4]; /* only used if bits are 16 or 32 */
 
     /* There are other fields in the actual file info, but we don't need 'em.
      */
@@ -247,6 +252,14 @@ static int ReadInfo(bmp_info * info, FILE * fp)
     if(!ReadLittleUint16(&info->planes,      fp)) return 0;
     if(!ReadLittleUint16(&info->bits,        fp)) return 0;
     if(!ReadLittleUint32(&info->compression, fp)) return 0;
+	if (fseek(fp, 32 / 8, SEEK_CUR)) return 0; /* Size of the raw bitmap data (including padding) */
+	if (fseek(fp, 64 / 8, SEEK_CUR)) return 0; /* Print resolution */
+	if (fseek(fp, 32 / 8, SEEK_CUR)) return 0; /* Number of colors in the palette */
+	if (fseek(fp, 32 / 8, SEEK_CUR)) return 0; /* 0 means all colors are important */
+	if (!ReadLittleUint32(&info->channel_masks[0], fp)) return 0;
+	if (!ReadLittleUint32(&info->channel_masks[1], fp)) return 0;
+	if (!ReadLittleUint32(&info->channel_masks[2], fp)) return 0;
+	if (!ReadLittleUint32(&info->channel_masks[3], fp)) return 0;
     return 1;
 }
 
@@ -294,6 +307,92 @@ static int ReadPalette(bmp_palette_entry * palette, size_t colors, FILE * fp)
         palette[i].unused = components[3];
     }
     return 1;
+}
+
+/* This method raises the base(base) by the given power(power).  Returns 0
+* if the output would overflow or nonzero on success.
+*
+* Note that 0^0 results to 0 in this case
+*/
+static int RaiseToPower(int32_t * result, int32_t base, int32_t power)
+{
+	int current_power;
+	*result = base;
+
+	if (base == 0)
+		return 1; /* result is 0 */
+	if (power == 0) {
+		*result = 1;
+		return 1;
+	}
+
+	/* current_power start at 1 because *result is already base. */
+	for (current_power = 1; current_power < power; current_power++) {
+		if (CanMultiply(*result, base))
+			*result = (*result) * base;
+		else
+			return 0;
+	}
+
+	return 1;
+}
+
+/* This struct holds information for a bit field. A bit field is used when the
+* compression value of a bitmap is 3. Only bitmaps with a bit count of 16 or 32
+* can have a compression of 3 and therefor use a bit field.
+*/
+typedef struct bit_field_info {
+	uint8_t  bit_shift;        /* The shift that has to be applied to get the value */
+	uint32_t bit_mask;         /* The mask of the used bits */
+	float    value_multiplier; /* A multiplier to normalize values that have less than 8 bits */
+} bit_field_info;
+
+#define BMP_BIT_FIELD_SIZE 4
+
+/* Creates the bit_field_info(bit_field) based on the bit_mask(bit_field_mask)
+* Returns 0 on failure or nonzero on success.
+*/
+static int CreateBitField(bit_field_info * bit_field, uint32_t bit_field_mask)
+{
+	/* I have to say, that I prefer camelCased value names, but I'll keep the original naming style */
+	uint32_t bit_nr;
+	uint8_t mask_bit_count;
+	int32_t max_mask_value;
+
+	if (!bit_field) /* Idiot test for my self */
+		return 0;
+
+	mask_bit_count = 0;
+	bit_field->bit_mask = bit_field_mask;
+
+	if (bit_field_mask == 0) {
+		bit_field->bit_shift = 0; /* to be able to use bitwise operators without errors */
+		bit_field->value_multiplier = 0;
+		return 1;
+	}
+
+	bit_field->bit_shift = 0xff; /* invalid/impossible value */
+	for (bit_nr = 0; bit_nr < BMP_BIT_FIELD_SIZE * 8; bit_nr++) {
+		uint8_t bit_value = (bit_field_mask >> bit_nr) & 0x01; /* value of the current bit this is 0 or 1*/
+
+															   /* bit_field->bit_shift == 0xff should always be true but: better be save than sorry. */
+		if (bit_value == 1) {
+			mask_bit_count++;
+			if (bit_field->bit_shift == 0xff) {
+				bit_field->bit_shift = (uint8_t)bit_nr; /* the conversion should always work since bit_nr is always less than 0xff */
+			}
+		}
+	}
+
+	if (mask_bit_count == 0 || bit_field->bit_shift == 0xff)
+		return 0;
+
+	if (!RaiseToPower(&max_mask_value, 2, (int32_t)mask_bit_count))
+		return 0;
+
+	bit_field->value_multiplier = (float)0xff / (float)(max_mask_value - 1); /* -1 because the value space start at 0. */
+
+	return 1;
 }
 
 /* Returns whether a non-negative integer is a power of 2.  I'm not sure if
@@ -351,6 +450,7 @@ typedef struct read_context
     size_t              file_line_len; /* How many bytes each scan line is. */
     size_t              rgb_line_len;  /* Bytes in each output line. */
     bmp_palette_entry * palette;       /* Enough entries for our bit depth. */
+	bit_field_info      bit_fields[4]; /* The bit_fields are used to decode a bitmap if the compression is 3. */
     uint8_t           * file_data;     /* A line of data in the file. */
     uint8_t           * rgb_data;      /* Rgb data output buffer. */
 
@@ -374,10 +474,11 @@ static int Validate(read_context * p_ctx)
         if(p_ctx->info.width <= 0 || p_ctx->info.height == 0) break;
 
         /* No compression supported yet (TODO: handle RLE). */
-        if(p_ctx->info.compression > 0) break;
+		if (p_ctx->info.compression != 0 && p_ctx->info.compression != 3) break;
 
-        if(p_ctx->info.bits != 1 && p_ctx->info.bits != 4 &&
-           p_ctx->info.bits != 8 && p_ctx->info.bits != 24) break;
+		if (p_ctx->info.bits != 1 && p_ctx->info.bits != 4 &&
+			p_ctx->info.bits != 8 && p_ctx->info.bits != 16 &&
+			p_ctx->info.bits != 24 && p_ctx->info.bits != 32) break;
 
         if(!CanMakeSizeT(p_ctx->info.width)) break;
         p_ctx->file_line_len = GetLineLength(p_ctx->info.width,
@@ -432,6 +533,13 @@ static int Validate(read_context * p_ctx)
                      SEEK_SET))                                 break;
             if(!ReadPalette(p_ctx->palette, colors, p_ctx->fp)) break;
         }
+		/* Loading bit field info for decoding */
+		if (p_ctx->info.compression == 3) {
+			if (!CreateBitField(&p_ctx->bit_fields[0], p_ctx->info.channel_masks[0])) break;
+			if (!CreateBitField(&p_ctx->bit_fields[1], p_ctx->info.channel_masks[1])) break;
+			if (!CreateBitField(&p_ctx->bit_fields[2], p_ctx->info.channel_masks[2])) break;
+			if (!CreateBitField(&p_ctx->bit_fields[3], p_ctx->info.channel_masks[3])) break; /* yes this is unnecessary but well deal with it */
+		}
 
         /* Set things up for decoding. */
         if(!(p_ctx->file_data = (uint8_t *)
@@ -446,6 +554,37 @@ static int Validate(read_context * p_ctx)
     } while(0);
 
     return 0;
+}
+
+/* Decodes 32-bit bitmap data.  Takes a pointer to an output buffer scan line
+* (p_rgb), a pointer to the end of the PIXEL DATA of this scan line
+* (p_rgb_end), a pointer to the source scan line of file data (p_file), and a
+*  array of bit fields to decode the data.
+*/
+static void Decode32(uint8_t * p_rgb,
+	const uint8_t * p_rgb_end,
+	const uint8_t * p_file,
+	const bit_field_info * bit_field_info)
+{
+	uint32_t * value;
+	while (p_rgb < p_rgb_end) {
+		value = (uint32_t*)p_file;
+
+		/* R */
+		*p_rgb++ = (uint8_t)
+			(((*value & bit_field_info[0].bit_mask) >> bit_field_info[0].bit_shift) /* the mask value */ *
+				bit_field_info[0].value_multiplier);
+		/* G */
+		*p_rgb++ = (uint8_t)
+			(((*value & bit_field_info[1].bit_mask) >> bit_field_info[1].bit_shift) /* the mask value */ *
+				bit_field_info[1].value_multiplier);
+		/* B */
+		*p_rgb++ = (uint8_t)
+			(((*value & bit_field_info[2].bit_mask) >> bit_field_info[2].bit_shift) /* the mask value */ *
+				bit_field_info[2].value_multiplier);
+
+		p_file += 4;
+	}
 }
 
 /* Decodes 24-bit bitmap data.  Takes a pointer to an output buffer scan line
@@ -467,6 +606,38 @@ static void Decode24(uint8_t * p_rgb,
     }
 
     (void)palette; /* Unused. */
+}
+
+/* Decodes 16-bit bitmap data.  Takes a pointer to an output buffer scan line
+* (p_rgb), a pointer to the end of the PIXEL DATA of this scan line
+* (p_rgb_end), a pointer to the source scan line of file data (p_file), and a
+*  array of bit fields to decode the data.
+*/
+static void Decode16(uint8_t * p_rgb,
+	const uint8_t * p_rgb_end,
+	const uint8_t * p_file,
+	const bit_field_info * bit_field_info)
+{
+
+	uint32_t * value;
+	while (p_rgb < p_rgb_end) {
+		value = (uint32_t*)p_file;
+
+		/* R */
+		*p_rgb++ = (uint8_t)
+			(((*value & bit_field_info[0].bit_mask) >> bit_field_info[0].bit_shift) /* the mask value */ *
+				bit_field_info[0].value_multiplier);
+		/* G */
+		*p_rgb++ = (uint8_t)
+			(((*value & bit_field_info[1].bit_mask) >> bit_field_info[1].bit_shift) /* the mask value */ *
+				bit_field_info[1].value_multiplier);
+		/* B */
+		*p_rgb++ = (uint8_t)
+			(((*value & bit_field_info[2].bit_mask) >> bit_field_info[2].bit_shift) /* the mask value */ *
+				bit_field_info[2].value_multiplier);
+
+		p_file += 2;
+	}
 }
 
 /* Same as Decode24, but for 8 bit palette data.
@@ -543,7 +714,8 @@ static void Decode1(uint8_t * p_rgb,
 static int Decode(read_context * p_ctx)
 {
     void (* decoder)(uint8_t *, const uint8_t *, const uint8_t *,
-                     const bmp_palette_entry *);
+                     const void *);
+	void* extra_decode_info;
 
     uint8_t * p_rgb;      /* Pointer to current scan line in output buffer. */
     uint8_t * p_rgb_end;  /* End marker for output buffer. */
@@ -587,14 +759,21 @@ static int Decode(read_context * p_ctx)
 
     p_line_end = p_rgb + (size_t)p_ctx->info.width * 3;
 
-    switch(p_ctx->info.bits)
-    {
-        case 24: decoder = Decode24; break;
-        case 8:  decoder = Decode8;  break;
-        case 4:  decoder = Decode4;  break;
-        case 1:  decoder = Decode1;  break;
-        default: return 0;
-    }
+	/* Select the decoder */
+	switch (p_ctx->info.bits) {
+		case 32: decoder = Decode32; break;
+		case 24: decoder = Decode24; break;
+		case 16: decoder = Decode16; break;
+		case 8:  decoder = Decode8;  break;
+		case 4:  decoder = Decode4;  break;
+		case 1:  decoder = Decode1;  break;
+		default: return 0;
+	}
+	switch (p_ctx->info.compression) {
+		case 0:  extra_decode_info = p_ctx->palette;  break;
+		case 3:  extra_decode_info = p_ctx->bit_fields;  break;
+		default: return 0;
+	}
 
     if(!CanMakeLong(p_ctx->header.data_offset))               return 0;
     if(fseek(p_ctx->fp, p_ctx->header.data_offset, SEEK_SET)) return 0;
@@ -603,7 +782,7 @@ static int Decode(read_context * p_ctx)
           fread(p_ctx->file_data, 1, p_ctx->file_line_len, p_ctx->fp) ==
           p_ctx->file_line_len)
     {
-        decoder(p_rgb, p_line_end, p_ctx->file_data, p_ctx->palette);
+		decoder(p_rgb, p_line_end, p_ctx->file_data, extra_decode_info);
 
         p_rgb      += rgb_inc;
         p_line_end += rgb_inc;
