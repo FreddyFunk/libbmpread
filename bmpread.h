@@ -67,6 +67,9 @@ typedef struct bmpread_t
 /* Allow loading of any size bitmap (default is bitmaps must be 2^n x 2^m). */
 #define BMPREAD_ANY_SIZE   4u
 
+/* This loads the alpha channel of the bitmap. 
+ * In case of a bitmap that doesn't provide a alpha channel all alpha values will be set to 0xff. */
+#define BMPREAD_LOAD_ALPHA 8u
 
 /* Loads the specified bitmap file from disk and fills out a bmpread_t struct
  * with data about it.

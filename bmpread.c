@@ -224,13 +224,13 @@ static int ReadHeader(bmp_header * header, FILE * fp)
  */
 typedef struct bmp_info
 {
-    uint32_t info_size;   /* Size of info struct (> sizeof(bmp_info)). */
-    int32_t  width;       /* Width of image. */
-    int32_t  height;      /* Height (< 0 means right-side up). */
-    uint16_t planes;      /* Planes (should be 1). */
-    uint16_t bits;        /* Number of bits (1, 4, 8, 16, 24, or 32). */
-    uint32_t compression; /* 0 = none, 1 = 8-bit RLE, 2 = 4-bit RLE, etc. */
-    uint32_t unused[5];   /* A place holder for unused values */
+    uint32_t info_size;        /* Size of info struct (> sizeof(bmp_info)). */
+    int32_t  width;            /* Width of image. */
+    int32_t  height;           /* Height (< 0 means right-side up). */
+    uint16_t planes;           /* Planes (should be 1). */
+    uint16_t bits;             /* Number of bits (1, 4, 8, 16, 24, or 32). */
+    uint32_t compression;      /* 0 = none, 1 = 8-bit RLE, 2 = 4-bit RLE, etc. */
+    uint32_t unused[5];        /* A place holder for unused values */
     uint32_t channel_masks[4]; /* only used if bits are 16 or 32 */
 
     /* There are other fields in the actual file info, but we don't need 'em.
@@ -249,6 +249,11 @@ typedef struct bmp_info
 */
 #define BMP_COMPRESSION_NONE           0
 #define BMP_COMPRESSION_BITFIELDS      3
+
+/* This is the default alpha value that will be used if the loaded bitmap doesn't
+ * supply a a value. (xFrednet was here ;P)
+ */
+#define BMP_DEFAULT_ALPHA_VALUE        0xff
 
 /* Reads bitmap metadata from fp into info.  Returns 0 on EOF or nonzero on
  * success.
@@ -444,17 +449,18 @@ static size_t GetLineLength(size_t width, size_t bpp)
  */
 typedef struct read_context
 {
-    unsigned int        flags;         /* Flags passed to bmpread. */
-    FILE              * fp;            /* File pointer. */
-    bmp_header          header;        /* File header. */
-    bmp_info            info;          /* File info. */
-    int32_t             lines;         /* How many scan lines (abs(height)). */
-    size_t              file_line_len; /* How many bytes each scan line is. */
-    size_t              rgb_line_len;  /* Bytes in each output line. */
-    bmp_palette_entry * palette;       /* Enough entries for our bit depth. */
-    bit_field_info      bit_fields[4]; /* The bit_fields are used to decode a bitmap if the compression is 3. */
-    uint8_t           * file_data;     /* A line of data in the file. */
-    uint8_t           * rgb_data;      /* Rgb data output buffer. */
+    unsigned int        flags;             /* Flags passed to bmpread. */
+    FILE              * fp;                /* File pointer. */
+    bmp_header          header;            /* File header. */
+    bmp_info            info;              /* File info. */
+    int32_t             lines;             /* How many scan lines (abs(height)). */
+    size_t              file_line_len;     /* How many bytes each scan line is. */
+    size_t              out_channel_count; /* The amount of channels that should be loaded (3 => RGB or 4 => RGBA) */
+    size_t              rgb_line_len;      /* Bytes in each output line. */
+    bmp_palette_entry * palette;           /* Enough entries for our bit depth. */
+    bit_field_info      bit_fields[4];     /* The bit_fields are used to decode a bitmap if the compression is 3. */
+    uint8_t           * file_data;         /* A line of data in the file. */
+    uint8_t           * rgb_data;          /* Rgb data output buffer. */
 
 } read_context;
 
@@ -501,18 +507,19 @@ static int Validate(read_context * p_ctx)
                                              p_ctx->info.bits);
         if(p_ctx->file_line_len == 0) break;
 
+        p_ctx->out_channel_count = ((p_ctx->flags & BMPREAD_LOAD_ALPHA) ? 4 : 3);
         /* This check happens outside the following if, where it would seem to
          * belong, because we make the same computation again in the future.
          */
-        if(!CanMultiply(p_ctx->info.width, 3)) break;
+        if(!CanMultiply(p_ctx->info.width, p_ctx->out_channel_count)) break;
 
-        if(p_ctx->flags & BMPREAD_BYTE_ALIGN)
+        if(p_ctx->flags & BMPREAD_BYTE_ALIGN) /* this might be unnecessary when out_channel_count is 4 TODO think about it */
         {
-            p_ctx->rgb_line_len = (size_t)p_ctx->info.width * 3;
+            p_ctx->rgb_line_len = (size_t)p_ctx->info.width * p_ctx->out_channel_count;
         }
         else
         {
-            p_ctx->rgb_line_len = GetLineLength(p_ctx->info.width, 24);
+            p_ctx->rgb_line_len = GetLineLength(p_ctx->info.width, p_ctx->out_channel_count * 8);
             if(p_ctx->rgb_line_len == 0) break;
         }
 
@@ -622,6 +629,18 @@ static void Decode32(uint8_t * p_rgb,
             (((*value & p_ctx->bit_fields[2].bit_mask) >> p_ctx->bit_fields[2].bit_shift) /* the mask value */ *
                 p_ctx->bit_fields[2].value_multiplier);
 
+        if(p_ctx->out_channel_count == 4) {
+            /* A */
+            if(p_ctx->bit_fields[3].bit_mask) {
+                *p_rgb++ = (uint8_t)
+                    (((*value & p_ctx->bit_fields[3].bit_mask) >> p_ctx->bit_fields[3].bit_shift) /* the mask value */ *
+                        p_ctx->bit_fields[3].value_multiplier);
+            }
+            else {
+                *p_rgb++ = BMP_DEFAULT_ALPHA_VALUE;
+            }
+        }
+
         p_file += 4;
     }
 }
@@ -636,11 +655,16 @@ static void Decode24(uint8_t * p_rgb,
                      const uint8_t * p_file,
                      const read_context * p_ctx)
 {
-    while (p_rgb < p_rgb_end) {
-        /* Output is RGB, but input is BGR, hence the +/- 2. */
-        *p_rgb++ = *(p_file++ + 2);
-        *p_rgb++ = *(p_file++);
-        *p_rgb++ = *(p_file++ - 2);
+    while (p_rgb < p_rgb_end) 
+    {
+        *p_rgb++ = *(p_file + 2);
+        *p_rgb++ = *(p_file + 1);
+        *p_rgb++ = *(p_file    );
+
+        if(p_ctx->out_channel_count == 4)
+            *p_rgb++ = BMP_DEFAULT_ALPHA_VALUE;
+
+        p_file += 3;
     }
 
     (void)p_ctx; /* Unused. */
@@ -674,6 +698,21 @@ static void Decode16(uint8_t * p_rgb,
             (((*value & p_ctx->bit_fields[2].bit_mask) >> p_ctx->bit_fields[2].bit_shift) /* the mask value */ *
                 p_ctx->bit_fields[2].value_multiplier);
 
+        if(p_ctx->out_channel_count == 4)
+        {
+            /* A */
+            if(p_ctx->bit_fields[3].bit_mask)
+            {
+                *p_rgb++ = (uint8_t)
+                    (((*value & p_ctx->bit_fields[3].bit_mask) >> p_ctx->bit_fields[3].bit_shift) /* the mask value */ *
+                        p_ctx->bit_fields[3].value_multiplier);
+            } 
+            else
+            {
+                *p_rgb++ = BMP_DEFAULT_ALPHA_VALUE;
+            }
+        }
+
         p_file += 2;
     }
 }
@@ -686,9 +725,14 @@ static void Decode8(uint8_t * p_rgb,
     const read_context * p_ctx)
 {
     while (p_rgb < p_rgb_end) {
-        *p_rgb++ = p_ctx->palette[*p_file  ].red;
-        *p_rgb++ = p_ctx->palette[*p_file  ].green;
-        *p_rgb++ = p_ctx->palette[*p_file++].blue;
+        *p_rgb++ = p_ctx->palette[*p_file].red;
+        *p_rgb++ = p_ctx->palette[*p_file].green;
+        *p_rgb++ = p_ctx->palette[*p_file].blue;
+
+        if(p_ctx->out_channel_count == 4)
+            *p_rgb++ = BMP_DEFAULT_ALPHA_VALUE;
+
+        *p_file++;
     }
 }
 
@@ -709,6 +753,9 @@ static void Decode4(uint8_t * p_rgb,
         *p_rgb++ = p_ctx->palette[lookup].green;
         *p_rgb++ = p_ctx->palette[lookup].blue;
 
+        if(p_ctx->out_channel_count == 4) 
+            *p_rgb++ = BMP_DEFAULT_ALPHA_VALUE;
+
         if(p_rgb < p_rgb_end)
         {
             lookup = *p_file++ & 0x0fU;
@@ -716,6 +763,9 @@ static void Decode4(uint8_t * p_rgb,
             *p_rgb++ = p_ctx->palette[lookup].red;
             *p_rgb++ = p_ctx->palette[lookup].green;
             *p_rgb++ = p_ctx->palette[lookup].blue;
+
+            if(p_ctx->out_channel_count == 4)
+                *p_rgb++ = BMP_DEFAULT_ALPHA_VALUE;
         }
     }
 }
@@ -739,6 +789,9 @@ static void Decode1(uint8_t * p_rgb,
             *p_rgb++ = p_ctx->palette[lookup].red;
             *p_rgb++ = p_ctx->palette[lookup].green;
             *p_rgb++ = p_ctx->palette[lookup].blue;
+
+            if(p_ctx->out_channel_count == 4)
+                *p_rgb++ = BMP_DEFAULT_ALPHA_VALUE;
         }
 
         p_file++;
@@ -765,7 +818,7 @@ static int Decode(read_context * p_ctx)
      */
     ptrdiff_t rgb_inc;
 
-    /* Double check this won't overflow.  Who knows, man. */
+    /* Double check this won't overflow. Who knows, man. */
 #if SIZE_MAX > PTRDIFF_MAX
     if(p_ctx->rgb_line_len > PTRDIFF_MAX) return 0;
 #endif
@@ -793,7 +846,7 @@ static int Decode(read_context * p_ctx)
         rgb_inc = -rgb_inc;
     }
 
-    p_line_end = p_rgb + (size_t)p_ctx->info.width * 3;
+    p_line_end = p_rgb + (size_t)p_ctx->info.width * p_ctx->out_channel_count;
 
     /* Select the decoder */
     switch (p_ctx->info.bits) {
