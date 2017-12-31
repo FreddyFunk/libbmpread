@@ -24,6 +24,8 @@
 /* bmpread.c
  * version 2.1
  * 2016-07-18
+ *
+ * This code was modified by me xFrednet to enable 16 and 32bpp loading.
  */
 
 
