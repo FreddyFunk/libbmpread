@@ -753,7 +753,7 @@ static void Decode8(uint8_t * p_rgb,
         if(p_ctx->out_channel_count == 4)
             *p_rgb++ = BMP_DEFAULT_ALPHA_VALUE;
 
-        *p_file++;
+        p_file++;
     }
 }
 
