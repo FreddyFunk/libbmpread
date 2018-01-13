@@ -407,19 +407,16 @@ static int CreateBitField(bit_field_info * bit_field, uint32_t bit_field_mask)
     return 1;
 }
 
-/* Returns whether a non-negative integer is a power of 2.  I'm not sure if
- * this makes any assumptions about unsigned integer storage that aren't
- * mandated by the spec.
+/* Returns whether a non-negative integer is a power of 2.
  */
 static int IsPowerOf2(uint32_t x)
 {
-    uint32_t bit;
-
-    for(bit = 1; bit; bit <<= 1)
+    while(x)
     {
         /* When we find a bit, return whether no other bits are set. */
-        if(x & bit)
-            return !(x & ~bit);
+        if(x & 1)
+            return !(x & ~UINT32_C(1));
+        x = x >> 1;
     }
 
     /* 0, the only value for x which lands us here, isn't a power of 2. */
