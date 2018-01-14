@@ -46,6 +46,7 @@ int main(int argc, char * argv[])
     puts("Copyright (C) 2005, 2012, 2016 Charles Lindsay <chaz@chazomatic.us>");
     puts("");
 
+    /* TODO: allow --alpha and --any-size. */
     if(argc < 2)
     {
         printf("Usage: %s <bmpfile> [glut_options]\n", argv[0]);
@@ -81,8 +82,9 @@ int main(int argc, char * argv[])
 
     glGenTextures(1, &tex);
     glBindTexture(GL_TEXTURE_2D, tex);
+    /* TODO: handle alpha. */
     glTexImage2D(GL_TEXTURE_2D, 0, 3, bmp.width, bmp.height, 0,
-                 GL_RGB, GL_UNSIGNED_BYTE, bmp.rgb_data);
+                 GL_RGB, GL_UNSIGNED_BYTE, bmp.data);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
