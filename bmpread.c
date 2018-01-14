@@ -24,8 +24,6 @@
 /* bmpread.c
  * version 2.1
  * 2016-07-18
- *
- * This code was modified by me xFrednet to enable 16 and 32bpp loading.
  */
 
 
@@ -54,6 +52,9 @@
 #error "libbmpread requires CHAR_BIT == 8"
 #endif
 
+
+/* Default value for alpha when none is present in the file. */
+#define BMPREAD_DEFAULT_ALPHA 255
 
 /* I've tried to make every effort to remove the possibility of undefined
  * behavior and prevent related errors where maliciously crafted files could
@@ -207,11 +208,17 @@ typedef struct bmp_header
  */
 static int ReadHeader(bmp_header * header, FILE * fp)
 {
-    if(!ReadUint8(       &header->magic[0],    fp)) return 0;
-    if(!ReadUint8(       &header->magic[1],    fp)) return 0;
+    if(!ReadUint8(&header->magic[0], fp)) return 0;
+    if(!ReadUint8(&header->magic[1], fp)) return 0;
+
+    /* If it doesn't look like a bitmap header, don't even bother. */
+    if(header->magic[0] != 0x42 /* 'B' */) return 0;
+    if(header->magic[1] != 0x4d /* 'M' */) return 0;
+
     if(!ReadLittleUint32(&header->file_size,   fp)) return 0;
     if(!ReadLittleUint32(&header->unused,      fp)) return 0;
     if(!ReadLittleUint32(&header->data_offset, fp)) return 0;
+
     return 1;
 }
 
@@ -222,98 +229,106 @@ static int ReadHeader(bmp_header * header, FILE * fp)
  */
 #define BMP_HEADER_SIZE 14
 
-/* Bitmap info struct: comes immediately after header and describes the image.
+/* Bitmap info: comes immediately after the header and describes the image.
  */
 typedef struct bmp_info
 {
-    uint32_t info_size;        /* Size of info struct (> sizeof(bmp_info)). */
-    int32_t  width;            /* Width of image. */
-    int32_t  height;           /* Height (< 0 means right-side up). */
-    uint16_t planes;           /* Planes (should be 1). */
-    uint16_t bits;             /* Number of bits (1, 4, 8, 16, 24, or 32). */
-    uint32_t compression;    /* 0 = none, 1 = 8-bit RLE, 2 = 4-bit RLE, etc. */
-    uint32_t unused[5];        /* A place holder for unused values */
-    uint32_t channel_masks[4]; /* only used if bits are 16 or 32 */
+    uint32_t info_size;   /* Size of info struct (> sizeof(bmp_info)). */
+    int32_t  width;       /* Width of image. */
+    int32_t  height;      /* Height (< 0 means right-side up). */
+    uint16_t planes;      /* Planes (should be 1). */
+    uint16_t bits;        /* Number of bits (1, 4, 8, 16, 24, or 32). */
+    uint32_t compression; /* See COMPRESSION_* values below. */
+    uint32_t unused[5];   /* We don't care about these fields. */
+    uint32_t masks[4];    /* Bitmasks for 16- and 32-bit images. */
 
-    /* There are other fields in the actual file info, but we don't need 'em.
+    /* There can be additional later fields in the actual file info, but we
+     * don't need them here.
      */
 
 } bmp_info;
 
-/* This is the size of the minimal data inside bmp_info this information should
- * always be given.  The required field are: info_size(4), width(4), height(4),
- * planes(2), bits(2) and compression(4).  4 + 4 + 4 + 2 + 2 + 4 => 20 bytes
+/* We don't support files in bitmap formats older than Windows 3/NT.  info_size
+ * of 40 is defined by the spec as Windows 3/NT format, getting larger in later
+ * incarnations.
  */
-#define BMP_INFO_BASE_SIZE 20
+#define BMP3_INFO_SIZE 40
+#define MIN_INFO_SIZE BMP3_INFO_SIZE
 
-/* The following macros store the compression identifiers for the common
- * compressions.  This library currently only support the compression methods
- * listed below.
+/* Values for the compression field.  We only support COMPRESSION_NONE and
+ * COMPRESSION_BITFIELDS so far.
  */
-#define BMP_COMPRESSION_NONE 0
-#define BMP_COMPRESSION_BITFIELDS 3
-
-/* This is the default alpha value that will be used if the loaded bitmap
- * doesn't supply a a value.  (xFrednet was here ;P)
- */
-#define BMP_DEFAULT_ALPHA_VALUE 0xff
+#define COMPRESSION_NONE      0
+#define COMPRESSION_RLE8      1
+#define COMPRESSION_RLE4      2
+#define COMPRESSION_BITFIELDS 3
 
 /* Reads bitmap metadata from fp into info.  Returns 0 on EOF or nonzero on
  * success.
  */
 static int ReadInfo(bmp_info * info, FILE * fp)
 {
-    uint32_t loaded_bytes;
-    uint32_t index;
+    if(!ReadLittleUint32(&info->info_size, fp)) return 0;
 
-    if(!ReadLittleUint32(&info->info_size,   fp)) return 0;
+    /* Older formats might not have all the fields we require, so this check
+     * comes first.
+     */
+    if(info->info_size < MIN_INFO_SIZE) return 0;
+
     if(!ReadLittleInt32( &info->width,       fp)) return 0;
     if(!ReadLittleInt32( &info->height,      fp)) return 0;
     if(!ReadLittleUint16(&info->planes,      fp)) return 0;
     if(!ReadLittleUint16(&info->bits,        fp)) return 0;
     if(!ReadLittleUint32(&info->compression, fp)) return 0;
-    loaded_bytes = BMP_INFO_BASE_SIZE;
+    if(!ReadLittleUint32(&info->unused[0],   fp)) return 0;
+    if(!ReadLittleUint32(&info->unused[1],   fp)) return 0;
+    if(!ReadLittleUint32(&info->unused[2],   fp)) return 0;
+    if(!ReadLittleUint32(&info->unused[3],   fp)) return 0;
+    if(!ReadLittleUint32(&info->unused[4],   fp)) return 0;
 
-    if(info->compression != 3) return 1;
+    /* We don't bother to even try to read bitmasks if they aren't needed,
+     * since they won't be present in Windows 3 format bitmap files.
+     */
+    if(info->compression == COMPRESSION_BITFIELDS)
+    {
+        /* We're guaranteed at least the R, G, and B bitfields... */
+        if(!ReadLittleUint32(&info->masks[0], fp)) return 0;
+        if(!ReadLittleUint32(&info->masks[1], fp)) return 0;
+        if(!ReadLittleUint32(&info->masks[2], fp)) return 0;
 
-    /* Load unused bytes. */
-    for(index = 0; index < 5; index++)
-    {
-        if(loaded_bytes + 4 > info->info_size ||
-            !ReadLittleUint32(&info->unused[index], fp)) return 0;
-        loaded_bytes += 4;
+        /* ...However, only bitmap versions *after* Windows 3/NT have an alpha
+         * bitmask.
+         */
+        if(info->info_size > BMP3_INFO_SIZE)
+        {
+            if(!ReadLittleUint32(&info->masks[3], fp)) return 0;
+        }
     }
-    /* Load channel bit masks. */
-    for(index = 0; index < 4; index++)
-    {
-        if(loaded_bytes + 4 > info->info_size ||
-            !ReadLittleUint32(&info->channel_masks[index], fp)) return 0;
-        loaded_bytes += 4;
-    }
+
     return 1;
 }
 
 /* A single color entry in the palette, in file order (BGR + one unused byte).
  */
-typedef struct bmp_palette_entry
+typedef struct bmp_color
 {
     uint8_t blue;
     uint8_t green;
     uint8_t red;
     uint8_t unused;
 
-} bmp_palette_entry;
+} bmp_color;
 
 /* How many bytes in the file are occupied by a palette entry, by definition in
  * the spec (and again note that it might not be the same as
- * sizeof(bmp_palette_entry), even if we match).
+ * sizeof(bmp_color), even if we match).
  */
-#define BMP_PALETTE_ENTRY_SIZE 4
+#define BMP_COLOR_SIZE 4
 
 /* Reads the given number of colors from fp into the palette array.  Returns 0
  * on EOF or nonzero on success.
  */
-static int ReadPalette(bmp_palette_entry * palette, size_t colors, FILE * fp)
+static int ReadPalette(bmp_color * palette, size_t colors, FILE * fp)
 {
     /* This isn't the guaranteed-fastest way to implement this, but it should
      * perform quite well in practice due to compiler optimization and stdio
@@ -327,7 +342,7 @@ static int ReadPalette(bmp_palette_entry * palette, size_t colors, FILE * fp)
     size_t i;
     for(i = 0; i < colors; i++)
     {
-        uint8_t components[4];
+        uint8_t components[BMP_COLOR_SIZE];
         if(fread(components, 1, sizeof(components), fp) != sizeof(components))
             return 0;
 
@@ -459,7 +474,7 @@ typedef struct read_context
     size_t              file_line_len;  /* How many bytes each scan line is. */
     size_t              out_channel_count;/* Color channels (3, or 4=alpha). */
     size_t              out_line_len;      /* Bytes in each output line. */
-    bmp_palette_entry * palette;        /* Enough entries for our bit depth. */
+    bmp_color         * palette;        /* Enough entries for our bit depth. */
     bit_field_info      bit_fields[4];     /* How to decode 16- and 32-bits. */
     uint8_t           * file_data;         /* A line of data in the file. */
     uint8_t           * data_out;          /* RGB(A) data output buffer. */
@@ -479,21 +494,17 @@ static int Validate(read_context * p_ctx)
         if(!ReadHeader(&p_ctx->header, p_ctx->fp)) break;
         if(!ReadInfo(  &p_ctx->info,   p_ctx->fp)) break;
 
-        /* Some basic validation. */
-        if(p_ctx->header.magic[0] != 0x42 /* 'B' */) break;
-        if(p_ctx->header.magic[1] != 0x4d /* 'M' */) break;
-
         if(p_ctx->info.width <= 0 || p_ctx->info.height == 0) break;
 
         is_supported = 0;
         switch(p_ctx->info.compression)
         {
-            case BMP_COMPRESSION_NONE:
+            case COMPRESSION_NONE:
                 if(p_ctx->info.bits == 1 || p_ctx->info.bits == 4 ||
                    p_ctx->info.bits == 8 || p_ctx->info.bits == 24)
                     is_supported = 1;
                 break;
-            case BMP_COMPRESSION_BITFIELDS:
+            case COMPRESSION_BITFIELDS:
                 if(p_ctx->info.bits == 16 || p_ctx->info.bits == 32)
                     is_supported = 1;
                 break;
@@ -549,9 +560,9 @@ static int Validate(read_context * p_ctx)
             /* I believe C mandates that SIZE_MAX is at least 65535, so this
              * expression and the next are always safe.
              */
-            size_t colors = 1 << (size_t)p_ctx->info.bits;
-            if(!(p_ctx->palette = (bmp_palette_entry *)
-                 malloc(colors * BMP_PALETTE_ENTRY_SIZE))) break;
+            size_t colors = (size_t)1 << p_ctx->info.bits;
+            if(!(p_ctx->palette = (bmp_color *)
+                 malloc(colors * BMP_COLOR_SIZE))) break;
 
             if(!CanMakeLong(p_ctx->info.info_size)) break;
 #if UINT32_MAX > LONG_MAX
@@ -576,7 +587,7 @@ static int Validate(read_context * p_ctx)
             success = 1;
             for(channel_nr = 0; channel_nr < 4; channel_nr++)
             {
-                bit_mask = p_ctx->info.channel_masks[channel_nr];
+                bit_mask = p_ctx->info.masks[channel_nr];
 
                 /* Overlapping bit masks are invalid. */
                 if((total_bit_mask & bit_mask) ||
@@ -652,7 +663,7 @@ static void Decode32(uint8_t * p_out,
                                     );
             }
             else
-                *p_out++ = BMP_DEFAULT_ALPHA_VALUE;
+                *p_out++ = BMPREAD_DEFAULT_ALPHA;
         }
 
         p_file += 4;
@@ -676,7 +687,7 @@ static void Decode24(uint8_t * p_out,
         *p_out++ = *(p_file    );
 
         if(p_ctx->out_channel_count == 4)
-            *p_out++ = BMP_DEFAULT_ALPHA_VALUE;
+            *p_out++ = BMPREAD_DEFAULT_ALPHA;
 
         p_file += 3;
     }
@@ -727,7 +738,7 @@ static void Decode16(uint8_t * p_out,
                                     );
             }
             else
-                *p_out++ = BMP_DEFAULT_ALPHA_VALUE;
+                *p_out++ = BMPREAD_DEFAULT_ALPHA;
         }
 
         p_file += 2;
@@ -747,7 +758,7 @@ static void Decode8(uint8_t * p_out,
         *p_out++ = p_ctx->palette[*p_file].blue;
 
         if(p_ctx->out_channel_count == 4)
-            *p_out++ = BMP_DEFAULT_ALPHA_VALUE;
+            *p_out++ = BMPREAD_DEFAULT_ALPHA;
 
         p_file++;
     }
@@ -771,7 +782,7 @@ static void Decode4(uint8_t * p_out,
         *p_out++ = p_ctx->palette[lookup].blue;
 
         if(p_ctx->out_channel_count == 4)
-            *p_out++ = BMP_DEFAULT_ALPHA_VALUE;
+            *p_out++ = BMPREAD_DEFAULT_ALPHA;
 
         if(p_out < p_out_end)
         {
@@ -782,7 +793,7 @@ static void Decode4(uint8_t * p_out,
             *p_out++ = p_ctx->palette[lookup].blue;
 
             if(p_ctx->out_channel_count == 4)
-                *p_out++ = BMP_DEFAULT_ALPHA_VALUE;
+                *p_out++ = BMPREAD_DEFAULT_ALPHA;
         }
     }
 }
@@ -808,7 +819,7 @@ static void Decode1(uint8_t * p_out,
             *p_out++ = p_ctx->palette[lookup].blue;
 
             if(p_ctx->out_channel_count == 4)
-                *p_out++ = BMP_DEFAULT_ALPHA_VALUE;
+                *p_out++ = BMPREAD_DEFAULT_ALPHA;
         }
 
         p_file++;

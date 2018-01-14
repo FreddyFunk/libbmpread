@@ -126,8 +126,9 @@ typedef struct bmpread_t
  * Most bitmap files can't include an alpha channel, so the default behavior is
  * to ignore any alpha values present in the file.  Pass BMPREAD_ALPHA in flags
  * to capture alpha values from the file; in case of an absent alpha channel,
- * alpha values are output as 255.  This allows fully loading 16- and 32-bit
- * bitmaps, which *can* include an alpha channel.
+ * alpha values are output as 255 (this can be changed by redefining
+ * BMPREAD_DEFAULT_ALPHA in bmpread.c).  This allows fully loading 16- and
+ * 32-bit bitmaps, which *can* include an alpha channel.
  */
 int bmpread(const char * bmp_file, unsigned int flags, bmpread_t * p_bmp_out);
 
