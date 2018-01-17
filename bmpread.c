@@ -667,29 +667,32 @@ static void Decode24(uint8_t * p_out,
                      const uint8_t * p_file,
                      const read_context * p_ctx)
 {
-    /* Split up this verbose way to get the conditional out of the loop. */
-    if(p_ctx->out_channels == 4)
+    while(p_out < p_out_end)
     {
-        while(p_out < p_out_end)
-        {
-            *p_out++ = *(p_file + 2);
-            *p_out++ = *(p_file + 1);
-            *p_out++ = *(p_file    );
-            *p_out++ = BMPREAD_DEFAULT_ALPHA;
+        *p_out++ = *(p_file + 2);
+        *p_out++ = *(p_file + 1);
+        *p_out++ = *(p_file    );
 
-            p_file += 3;
-        }
+        p_file += 3;
     }
-    else
-    {
-        while(p_out < p_out_end)
-        {
-            *p_out++ = *(p_file + 2);
-            *p_out++ = *(p_file + 1);
-            *p_out++ = *(p_file    );
+}
 
-            p_file += 3;
-        }
+/* Decodes 24-bit bitmap data the same as Decode24, but adds an alpha channel
+ * with the default value to the output.
+ */
+static void Decode24Alpha(uint8_t * p_out,
+                          const uint8_t * p_out_end,
+                          const uint8_t * p_file,
+                          const read_context * p_ctx)
+{
+    while(p_out < p_out_end)
+    {
+        *p_out++ = *(p_file + 2);
+        *p_out++ = *(p_file + 1);
+        *p_out++ = *(p_file    );
+        *p_out++ = BMPREAD_DEFAULT_ALPHA;
+
+        p_file += 3;
     }
 }
 
@@ -743,55 +746,54 @@ static void Decode16(uint8_t * p_out,
     }
 }
 
-/* Decodes 8-bit pixel data by looking colors up in the palette.
+/* Decodes 8-bit bitmap data by looking colors up in the palette.
  */
 static void Decode8(uint8_t * p_out,
                     const uint8_t * p_out_end,
                     const uint8_t * p_file,
                     const read_context * p_ctx)
 {
-    if(p_ctx->out_channels == 4)
-    {
-        while(p_out < p_out_end) {
-            *p_out++ = p_ctx->palette[*p_file].red;
-            *p_out++ = p_ctx->palette[*p_file].green;
-            *p_out++ = p_ctx->palette[*p_file].blue;
-            *p_out++ = BMPREAD_DEFAULT_ALPHA;
+    while(p_out < p_out_end) {
+        *p_out++ = p_ctx->palette[*p_file].red;
+        *p_out++ = p_ctx->palette[*p_file].green;
+        *p_out++ = p_ctx->palette[*p_file].blue;
 
-            p_file++;
-        }
-    }
-    else
-    {
-        while(p_out < p_out_end) {
-            *p_out++ = p_ctx->palette[*p_file].red;
-            *p_out++ = p_ctx->palette[*p_file].green;
-            *p_out++ = p_ctx->palette[*p_file].blue;
-
-            p_file++;
-        }
+        p_file++;
     }
 }
 
-/* Same as Decode24, but for 4 bit palette data.
+/* Decodes 8-bit bitmap data the same as Decode8, but adds an alpha channel
+ * with the default value to the output.
+ */
+static void Decode8Alpha(uint8_t * p_out,
+                         const uint8_t * p_out_end,
+                         const uint8_t * p_file,
+                         const read_context * p_ctx)
+{
+    while(p_out < p_out_end) {
+        *p_out++ = p_ctx->palette[*p_file].red;
+        *p_out++ = p_ctx->palette[*p_file].green;
+        *p_out++ = p_ctx->palette[*p_file].blue;
+        *p_out++ = BMPREAD_DEFAULT_ALPHA;
+
+        p_file++;
+    }
+}
+
+/* Decodes 4-bit bitmap data by looking colors up in the palette.
  */
 static void Decode4(uint8_t * p_out,
                     const uint8_t * p_out_end,
                     const uint8_t * p_file,
                     const read_context * p_ctx)
 {
-    unsigned int lookup;
-
     while(p_out < p_out_end)
     {
-        lookup = (*p_file & 0xf0U) >> 4;
+        unsigned int lookup = (*p_file & 0xf0U) >> 4;
 
         *p_out++ = p_ctx->palette[lookup].red;
         *p_out++ = p_ctx->palette[lookup].green;
         *p_out++ = p_ctx->palette[lookup].blue;
-
-        if(p_ctx->out_channels == 4)
-            *p_out++ = BMPREAD_DEFAULT_ALPHA;
 
         if(p_out < p_out_end)
         {
@@ -800,35 +802,81 @@ static void Decode4(uint8_t * p_out,
             *p_out++ = p_ctx->palette[lookup].red;
             *p_out++ = p_ctx->palette[lookup].green;
             *p_out++ = p_ctx->palette[lookup].blue;
-
-            if(p_ctx->out_channels == 4)
-                *p_out++ = BMPREAD_DEFAULT_ALPHA;
         }
     }
 }
 
-/* Same as Decode24, but for monochrome palette data.
+/* Decodes 4-bit bitmap data the same as Decode4, but adds an alpha channel
+ * with the default value to the output.
+ */
+static void Decode4Alpha(uint8_t * p_out,
+                         const uint8_t * p_out_end,
+                         const uint8_t * p_file,
+                         const read_context * p_ctx)
+{
+    while(p_out < p_out_end)
+    {
+        unsigned int lookup = (*p_file & 0xf0U) >> 4;
+
+        *p_out++ = p_ctx->palette[lookup].red;
+        *p_out++ = p_ctx->palette[lookup].green;
+        *p_out++ = p_ctx->palette[lookup].blue;
+        *p_out++ = BMPREAD_DEFAULT_ALPHA;
+
+        if(p_out < p_out_end)
+        {
+            lookup = *p_file++ & 0x0fU;
+
+            *p_out++ = p_ctx->palette[lookup].red;
+            *p_out++ = p_ctx->palette[lookup].green;
+            *p_out++ = p_ctx->palette[lookup].blue;
+            *p_out++ = BMPREAD_DEFAULT_ALPHA;
+        }
+    }
+}
+
+/* Decodes 1-bit bitmap data by looking colors up in the two-color palette.
  */
 static void Decode1(uint8_t * p_out,
                     const uint8_t * p_out_end,
                     const uint8_t * p_file,
                     const read_context * p_ctx)
 {
-    unsigned int bit;
-    unsigned int lookup;
-
     while(p_out < p_out_end)
     {
+        unsigned int bit;
         for(bit = 0; bit < 8 && p_out < p_out_end; bit++)
         {
-            lookup = (*p_file >> (7 - bit)) & 1;
+            unsigned int lookup = (*p_file >> (7 - bit)) & 1;
 
             *p_out++ = p_ctx->palette[lookup].red;
             *p_out++ = p_ctx->palette[lookup].green;
             *p_out++ = p_ctx->palette[lookup].blue;
+        }
 
-            if(p_ctx->out_channels == 4)
-                *p_out++ = BMPREAD_DEFAULT_ALPHA;
+        p_file++;
+    }
+}
+
+/* Decodes 1-bit bitmap data the same as Decode1, but adds an alpha channel
+ * with the default value to the output.
+ */
+static void Decode1Alpha(uint8_t * p_out,
+                         const uint8_t * p_out_end,
+                         const uint8_t * p_file,
+                         const read_context * p_ctx)
+{
+    while(p_out < p_out_end)
+    {
+        unsigned int bit;
+        for(bit = 0; bit < 8 && p_out < p_out_end; bit++)
+        {
+            unsigned int lookup = (*p_file >> (7 - bit)) & 1;
+
+            *p_out++ = p_ctx->palette[lookup].red;
+            *p_out++ = p_ctx->palette[lookup].green;
+            *p_out++ = p_ctx->palette[lookup].blue;
+            *p_out++ = BMPREAD_DEFAULT_ALPHA;
         }
 
         p_file++;
@@ -885,15 +933,31 @@ static int Decode(read_context * p_ctx)
 
     p_line_end = p_out + (size_t)p_ctx->info.width * p_ctx->out_channels;
 
-    switch(p_ctx->info.bits)
+    if(p_ctx->out_channels == 4)
     {
-        case 32: decoder = Decode32; break;
-        case 24: decoder = Decode24; break;
-        case 16: decoder = Decode16; break;
-        case 8:  decoder = Decode8;  break;
-        case 4:  decoder = Decode4;  break;
-        case 1:  decoder = Decode1;  break;
-        default: return 0;
+        switch(p_ctx->info.bits)
+        {
+            case 32: decoder = Decode32Alpha; break;
+            case 24: decoder = Decode24Alpha; break;
+            case 16: decoder = Decode16Alpha; break;
+            case 8:  decoder = Decode8Alpha;  break;
+            case 4:  decoder = Decode4Alpha;  break;
+            case 1:  decoder = Decode1Alpha;  break;
+            default: return 0;
+        }
+    }
+    else
+    {
+        switch(p_ctx->info.bits)
+        {
+            case 32: decoder = Decode32; break;
+            case 24: decoder = Decode24; break;
+            case 16: decoder = Decode16; break;
+            case 8:  decoder = Decode8;  break;
+            case 4:  decoder = Decode4;  break;
+            case 1:  decoder = Decode1;  break;
+            default: return 0;
+        }
     }
 
     if(!CanMakeLong(p_ctx->header.data_offset))               return 0;
