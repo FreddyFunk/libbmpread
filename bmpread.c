@@ -420,7 +420,6 @@ static int ValidateBitfields(read_context * p_ctx)
 
         uint32_t total_mask = 0;
         uint32_t total_span = 0;
-        uint32_t lowest_start = 32;
         bitfield total_field = {0, 0};
 
         int i;
@@ -432,17 +431,20 @@ static int ValidateBitfields(read_context * p_ctx)
             fields[i] = ParseBitfield(p_ctx->info.masks[i]);
             total_span += fields[i].span;
 
-            if(fields[i].span && lowest_start > fields[i].start)
-                lowest_start = fields[i].start;
+            if(fields[i].span && p_ctx->info.bits == 16)
+            {
+                /* 16-bit bitmasks must to be in the high bits only, per spec.
+                 * We logically treat them as starting from 0 just the same.
+                 */
+                if(fields[i].start < 16) return 0;
+                fields[i].start -= 16;
+            }
         }
         /* Ensure we got valid data that fits in our bit size.  Note that we
          * don't treat odd bitmasks such as R8G8 or A1G1B1 as invalid, even
          * though they may not load in most other loaders.
          */
         if(total_span == 0 || total_span > p_ctx->info.bits) return 0;
-
-        /* For 16-bit files, we need to be in the high bits only, per spec. */
-        if(lowest_start < 32 - p_ctx->info.bits) return 0;
 
         /* Non-contiguous bitfields are invalid. */
         total_field = ParseBitfield(total_mask);
@@ -604,52 +606,112 @@ static int Validate(read_context * p_ctx)
     return 1;
 }
 
-/* Decodes 32-bit bitmap data.  Takes a pointer to an output buffer scan line
- * (p_out), a pointer to the end of the PIXEL DATA of this scan line
- * (p_out_end), a pointer to the source scan line of file data (p_file), and a
- * array of bit fields to decode the data.
+/* Evenly distribute a value that spans a given number of bits into 8 bits.
+ */
+static unsigned int Make8Bits(unsigned int value, unsigned int bitspan)
+{
+    unsigned int output = 0;
+
+    if(bitspan == 8)
+        return value;
+    if(bitspan > 8)
+        return value >> (bitspan - 8);
+
+    value <<= (8 - bitspan); /* Shift it up into the most significant bits. */
+    while(value)
+    {
+        /* Repeat the bit pattern down into the least significant bits.  This
+         * gives an even distribution when extrapolating from [0, 2^bitspan-1]
+         * into [0, 2^8-1], and avoids both floating point and awkward integer
+         * multiplication.  Unfortunately, because we don't enforce a whitelist
+         * of bit patterns we support and can hard-code for, it necessitates a
+         * loop.  I believe this is a fairly efficient way to express the idea,
+         * but it'd still be nice if the compiler could optimize this whole
+         * function heavily, since it's called in a tight decode loop.
+         */
+        output |= value;
+        value >>= bitspan;
+    }
+
+    return output;
+}
+
+#define LoadLittleUint32(buf) (((uint32_t)(buf)[0]      ) + \
+                               ((uint32_t)(buf)[1] <<  8) + \
+                               ((uint32_t)(buf)[2] << 16) + \
+                               ((uint32_t)(buf)[3] << 24))
+
+/* Decodes 32-bit bitmap data by applying bitmasks.  Takes a pointer to an
+ * output buffer scan line (p_out), a pointer to the end of the *pixel data* of
+ * this scan line (p_out_end), a pointer to the source scan line of file data
+ * (p_file), and our context.
  */
 static void Decode32(uint8_t * p_out,
                      const uint8_t * p_out_end,
                      const uint8_t * p_file,
                      const read_context * p_ctx)
 {
-    uint32_t * value;
+    bitfield * fields = p_ctx->bitfields;
 
     while(p_out < p_out_end)
     {
-        value = (uint32_t*)p_file;
+        uint32_t value = LoadLittleUint32(p_file);
 
-        *p_out++ = (uint8_t)(
-                             ((*value & p_ctx->bit_fields[0].bit_mask)
-                                     >> p_ctx->bit_fields[0].bit_shift)
-                             * p_ctx->bit_fields[0].value_multiplier
-                            );
-        *p_out++ = (uint8_t)(
-                             ((*value & p_ctx->bit_fields[1].bit_mask)
-                                     >> p_ctx->bit_fields[1].bit_shift)
-                             * p_ctx->bit_fields[1].value_multiplier
-                            );
-        *p_out++ = (uint8_t)(
-                             ((*value & p_ctx->bit_fields[2].bit_mask)
-                                     >> p_ctx->bit_fields[2].bit_shift)
-                             * p_ctx->bit_fields[2].value_multiplier
-                            );
+        *p_out++ = Make8Bits(
+            (value >> fields[0].start) & ((UINT32_C(1) << fields[0].span) - 1),
+            fields[0].span
+        );
+        *p_out++ = Make8Bits(
+            (value >> fields[1].start) & ((UINT32_C(1) << fields[1].span) - 1),
+            fields[1].span
+        );
+        *p_out++ = Make8Bits(
+            (value >> fields[2].start) & ((UINT32_C(1) << fields[2].span) - 1),
+            fields[2].span
+        );
 
-        if(p_ctx->out_channels == 4)
+        p_file += 4;
+    }
+}
+
+/* Decodes 32-bit bitmap data the same as Decode32, but adds an alpha channel.
+ * If present in the file, its values will be used; if not, the default value
+ * is output.
+ */
+static void Decode32Alpha(uint8_t * p_out,
+                          const uint8_t * p_out_end,
+                          const uint8_t * p_file,
+                          const read_context * p_ctx)
+{
+    bitfield * fields = p_ctx->bitfields;
+
+    while(p_out < p_out_end)
+    {
+        uint32_t value = LoadLittleUint32(p_file);
+
+        *p_out++ = Make8Bits(
+            (value >> fields[0].start) & ((UINT32_C(1) << fields[0].span) - 1),
+            fields[0].span
+        );
+        *p_out++ = Make8Bits(
+            (value >> fields[1].start) & ((UINT32_C(1) << fields[1].span) - 1),
+            fields[1].span
+        );
+        *p_out++ = Make8Bits(
+            (value >> fields[2].start) & ((UINT32_C(1) << fields[2].span) - 1),
+            fields[2].span
+        );
+
+        if(fields[3].span)
         {
-            /* Alpha. */
-            if(p_ctx->bit_fields[3].bit_mask)
-            {
-                *p_out++ = (uint8_t)(
-                                     ((*value & p_ctx->bit_fields[3].bit_mask)
-                                             >> p_ctx->bit_fields[3].bit_shift)
-                                     * p_ctx->bit_fields[3].value_multiplier
-                                    );
-            }
-            else
-                *p_out++ = BMPREAD_DEFAULT_ALPHA;
+            *p_out++ = Make8Bits(
+                (value >> fields[3].start) &
+                        ((UINT32_C(1) << fields[3].span) - 1),
+                fields[2].span
+            );
         }
+        else
+            *p_out++ = BMPREAD_DEFAULT_ALPHA;
 
         p_file += 4;
     }
