@@ -388,46 +388,6 @@ static int ReadPalette(bmp_color * palette, int colors, FILE * fp)
     return 1;
 }
 
-/* Returns whether a non-negative integer is a power of 2.
- */
-static int IsPowerOf2(uint32_t x)
-{
-    while(x)
-    {
-        /* When we find a bit, return whether no other bits are set. */
-        if(x & 1)
-            return !(x & ~UINT32_C(1));
-        x = x >> 1;
-    }
-
-    /* 0, the only value for x which lands us here, isn't a power of 2. */
-    return 0;
-}
-
-/* Returns the byte length of a scan line padded as necessary to be divisible
- * by four.  For example, 3 pixels wide at 24 bpp would yield 12 (3 pixels * 3
- * bytes each = 9 bytes, padded by 3 to the next multiple of 4).  bpp is *bits*
- * per pixel, not bytes.  Returns 0 in case of overflow.
- */
-static size_t GetLineLength(size_t width, size_t bpp)
-{
-    size_t bits;     /* Number of bits in a line. */
-    size_t pad_bits; /* Number of padding bits to make bits divisible by 32. */
-
-    bits = width * bpp;
-    pad_bits = (32 - (bits & 0x1f)) & 0x1f; /* x & 0x1f == x % 32 */
-
-    /* Check for overflow, in both the above multiplication and the below
-     * addition.  It's well defined to do this in any order relative to the
-     * operations themselves (since size_t is unsigned), so we combine the
-     * checks into one if.  bpp has been checked for being nonzero elsewhere.
-     */
-    if(!CanMultiply(width, bpp) || !CanAdd(bits, pad_bits)) return 0;
-
-    /* Convert to bytes. */
-    return (bits + pad_bits) / 8;
-}
-
 /* Context shared between the below functions.
  */
 typedef struct read_context
@@ -524,6 +484,46 @@ static int ValidateAndReadPalette(read_context * p_ctx)
     }
 }
 
+/* Returns whether a non-negative integer is a power of 2.
+ */
+static int IsPowerOf2(uint32_t x)
+{
+    while(x)
+    {
+        /* When we find a bit, return whether no other bits are set. */
+        if(x & 1)
+            return !(x & ~UINT32_C(1));
+        x = x >> 1;
+    }
+
+    /* 0, the only value for x which lands us here, isn't a power of 2. */
+    return 0;
+}
+
+/* Returns the byte length of a scan line padded as necessary to be divisible
+ * by four.  For example, 3 pixels wide at 24 bpp would yield 12 (3 pixels * 3
+ * bytes each = 9 bytes, padded by 3 to the next multiple of 4).  bpp is *bits*
+ * per pixel, not bytes.  Returns 0 in case of overflow.
+ */
+static size_t GetLineLength(size_t width, size_t bpp)
+{
+    size_t bits;     /* Number of bits in a line. */
+    size_t pad_bits; /* Number of padding bits to make bits divisible by 32. */
+
+    bits = width * bpp;
+    pad_bits = (32 - (bits & 0x1f)) & 0x1f; /* x & 0x1f == x % 32 */
+
+    /* Check for overflow, in both the above multiplication and the below
+     * addition.  It's well defined to do this in any order relative to the
+     * operations themselves (since size_t is unsigned), so we combine the
+     * checks into one if.  bpp has been checked for being nonzero elsewhere.
+     */
+    if(!CanMultiply(width, bpp) || !CanAdd(bits, pad_bits)) return 0;
+
+    /* Convert to bytes. */
+    return (bits + pad_bits) / 8;
+}
+
 /* Reads and validates the bitmap header metadata from the context's file
  * object.  Assumes the file pointer is at the start of the file.  Returns 1 if
  * ok or 0 if error or invalid file.
@@ -535,9 +535,10 @@ static int Validate(read_context * p_ctx)
 
     if(p_ctx->info.width <= 0 || p_ctx->info.height == 0) return 0;
 
-    if(p_ctx->info.info_size > UINT32_MAX - BMP_HEADER_SIZE)       return 0;
+    if(p_ctx->info.info_size > UINT32_MAX - BMP_HEADER_SIZE) return 0;
     p_ctx->headers_size = BMP_HEADER_SIZE + p_ctx->info.info_size;
-    if(p_ctx->header.data_offset < p_ctx->headers_size)            return 0;
+
+    if(p_ctx->header.data_offset < p_ctx->headers_size) return 0;
     p_ctx->after_headers = p_ctx->header.data_offset - p_ctx->headers_size;
 
     if(!CanMakeSizeT(p_ctx->info.width))  return 0;
