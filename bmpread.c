@@ -250,9 +250,13 @@ typedef struct bmp_info
 
 } bmp_info;
 
-/* We don't support files in bitmap formats older than Windows 3/NT.  info_size
- * is defined as 40 for both Windows 3 and NT bitmap formats (together "bitmap
- * version 3" format), and gets larger in later incarnations.
+/* We don't support files in bitmap formats older than Windows 3, due to
+ * incompatibilities I didn't want to bother coding around.  info_size is
+ * defined as 40 for both Windows 3 and NT bitmap formats (together "bitmap
+ * version 3" format), and gets larger in later incarnations.  We *don't*
+ * support Windows NT format, which is just to say we don't support 16- or
+ * 32-bit depths before "bitmap version 4", because their data is in an awkward
+ * format.
  */
 #define BMP3_INFO_SIZE 40
 #define MIN_INFO_SIZE BMP3_INFO_SIZE
@@ -293,18 +297,15 @@ static int ReadInfo(bmp_info * info, FILE * fp)
      */
     if(info->compression == COMPRESSION_BITFIELDS)
     {
-        /* Windows NT bitmap files don't include bitmasks in the info header,
-         * but in place of a palette they have red, green, and blue bitmasks
-         * only.  We read them here since they're *usually* part of the header,
-         * but to be super pedantic we'll check later that they had space
-         * before the image data in this one case (in case the first few pixels
-         * also happen to be a valid bitmask).
+        /* Reject Windows NT format files with bitfields, since we don't
+         * support them, and their masks aren't part of the info header anyway.
          */
+        if(info->info_size == BMP3_INFO_SIZE) return 0;
+
         if(!ReadLittleUint32(&info->masks[0], fp)) return 0;
         if(!ReadLittleUint32(&info->masks[1], fp)) return 0;
         if(!ReadLittleUint32(&info->masks[2], fp)) return 0;
-        if(info->info_size > BMP3_INFO_SIZE &&
-           !ReadLittleUint32(&info->masks[3], fp)) return 0;
+        if(!ReadLittleUint32(&info->masks[3], fp)) return 0;
     }
 
     return 1;
@@ -474,7 +475,10 @@ static int ValidateBitfields(read_context * p_ctx)
             if(fields[i].span && lowest_start > fields[i].start)
                 lowest_start = fields[i].start;
         }
-        /* Ensure we got valid data that fits in our bit size. */
+        /* Ensure we got valid data that fits in our bit size.  Note that we
+         * don't treat odd bitmasks such as R8G8 or A1G1B1 as invalid, even
+         * though they may not load in most other loaders.
+         */
         if(total_span == 0 || total_span > p_ctx->info.bits) return 0;
 
         /* For 16-bit files, we need to be in the high bits only, per spec. */
@@ -483,13 +487,6 @@ static int ValidateBitfields(read_context * p_ctx)
         /* Non-contiguous bitfields are invalid. */
         total_field = ParseBitfield(total_mask);
         if(total_span != total_field.span) return 0;
-
-        /* Double check we had space in the file for the masks we just parsed,
-         * since Windows NT format files have three 32-bit bitmasks where a
-         * palette would live.  Not likely to matter at all, ever.
-         */
-        if(p_ctx->info.info_size == BMP3_INFO_SIZE &&
-           p_ctx->after_headers < 12) return 0;
     }
 
     return 1;

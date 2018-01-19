@@ -107,8 +107,8 @@ typedef struct bmpread_t
  * or nonzero if the file loaded ok.
  *
  * Notes:
- * The file must be a Windows 3/NT or higher format bitmap file with bit depth
- * of 1, 4, 8, 16, 24, or 32, and must not be compressed (no RLE).
+ * The file must be a Windows 3 (not NT) or higher format bitmap file with bit
+ * depth of 1, 4, 8, 16, 24, or 32, and must not be compressed (no RLE).
  *
  * Default behavior is for bmpread to return data in a format directly usable
  * by OpenGL texture functions, e.g. glTexImage2D, format GL_RGB (or GL_RGBA if
