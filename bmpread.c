@@ -321,25 +321,31 @@ typedef struct bitfield
 
 } bitfield;
 
-/* Turns a single mask component into a bitfield and returns it.  Span of 0
- * means the bitmask was invalid.
+/* Turns a single mask component into a bitfield.  Returns 0 if the bitmask was
+ * invalid, or nonzero if it's ok.  Span of 0 means the bitmask was absent.
  */
-static bitfield ParseBitfield(uint32_t mask)
+static int ParseBitfield(bitfield * field, uint32_t mask)
 {
-    bitfield field = {0, 0};
-
     uint32_t bit;
     for(bit = 0; bit < 32 && !(mask & (UINT32_C(1) << bit)); bit++)
         ;
-    field.start = bit;
+
+    if(bit >= 32)
+    {
+        /* Absent bitmasks are valid. */
+        field->start = field->span = 0;
+        return 1;
+    }
+
+    field->start = bit;
     for(; bit < 32 && (mask & (UINT32_C(1) << bit)); bit++)
         ;
-    field.span = bit - field.start;
+    field->span = bit - field->start;
 
-    if(field.start >= 32 || field.span >= 32 || field.span == 0)
-        field.start = field.span = 0;
+    /* If there are more set bits, there was a gap, which is invalid. */
+    if(bit < 32 && (mask & ~((UINT32_C(1) << bit) - 1))) return 0;
 
-    return field;
+    return 1;
 }
 
 /* A single color entry in the palette, in file order (BGR + one unused byte).
@@ -410,46 +416,38 @@ typedef struct read_context
 } read_context;
 
 /* A sub-function to Validate() that handles the bitfields.  Returns 0 on
- * invalid bitfields or nonzero on success.
+ * invalid bitfields or nonzero on success.  Note that we don't treat odd
+ * bitmasks such as R8G8 or A1G1B1 as invalid, even though they may not load in
+ * most other loaders.
  */
 static int ValidateBitfields(read_context * p_ctx)
 {
-    if(p_ctx->info.compression == COMPRESSION_BITFIELDS)
+    bitfield * bf = p_ctx->bitfields;
+
+    uint32_t total_mask = 0;
+    bitfield total_field;
+
+    int i;
+
+    if(p_ctx->info.compression != COMPRESSION_BITFIELDS)
+        return 1;
+
+    for(i = 0; i < 4; i++)
     {
-        bitfield * fields = p_ctx->bitfields;
+        /* No overlapping masks. */
+        if(total_mask & p_ctx->info.masks[i]) return 0;
+        total_mask |= p_ctx->info.masks[i];
 
-        uint32_t total_mask = 0;
-        uint32_t total_span = 0;
-        bitfield total_field = {0, 0};
+        if(!ParseBitfield(&bf[i], p_ctx->info.masks[i])) return 0;
 
-        int i;
-        for(i = 0; i < 4; i++)
-        {
-            if(total_mask & p_ctx->info.masks[i]) return 0;
-            total_mask |= p_ctx->info.masks[i];
-
-            fields[i] = ParseBitfield(p_ctx->info.masks[i]);
-            total_span += fields[i].span;
-
-            if(fields[i].span && p_ctx->info.bits == 16)
-            {
-                /* 16-bit bitmasks must to be in the high bits only, per spec.
-                 * We logically treat them as starting from 0 just the same.
-                 */
-                if(fields[i].start < 16) return 0;
-                fields[i].start -= 16;
-            }
-        }
-        /* Ensure we got valid data that fits in our bit size.  Note that we
-         * don't treat odd bitmasks such as R8G8 or A1G1B1 as invalid, even
-         * though they may not load in most other loaders.
-         */
-        if(total_span == 0 || total_span > p_ctx->info.bits) return 0;
-
-        /* Non-contiguous bitfields are invalid. */
-        total_field = ParseBitfield(total_mask);
-        if(total_span != total_field.span) return 0;
+        /* Make sure we fit in our bit size. */
+        if(bf[i].start + bf[i].span > p_ctx->info.bits) return 0;
     }
+
+    if(!total_mask) return 0;
+
+    /* Check for contiguous-ity between fields, too. */
+    if(!ParseBitfield(&total_field, total_mask)) return 0;
 
     return 1;
 }
@@ -459,31 +457,33 @@ static int ValidateBitfields(read_context * p_ctx)
  */
 static int ValidateAndReadPalette(read_context * p_ctx)
 {
-    if(p_ctx->info.bits <= 8)
-    {
-        uint32_t colors = UINT32_C(1) << p_ctx->info.bits;
+    uint32_t colors = UINT32_C(1) << p_ctx->info.bits;
+    uint32_t file_colors = p_ctx->info.colors;
 
-        uint32_t file_colors = p_ctx->info.colors;
-        if(file_colors > colors) return 0;
-        if(!file_colors)
-            file_colors = colors;
+    if(p_ctx->info.bits > 8)
+        return 1;
 
-        /* Make sure we actually have space in the file for all the colors. */
-        if(p_ctx->after_headers / BMP_COLOR_SIZE < file_colors) return 0;
+    if(file_colors > colors) return 0;
+    if(!file_colors)
+        file_colors = colors;
 
-        /* We always allocate a full palette even if the file only claims to
-         * contain a smaller number, so we don't have to check for out of bound
-         * color lookups.  Not sure what the desired behavior is, but loading
-         * the image anyway and treating OOB colors as black seems ok to me.
-         * 0-fill so lookups beyond the file's palette get set to black.
-         */
-        if(!(p_ctx->palette = (bmp_color *)
-             calloc(colors, sizeof(p->ctx->palette[0])))) return 0;
+    /* Make sure we actually have space in the file for all the colors. */
+    if(p_ctx->after_headers / BMP_COLOR_SIZE < file_colors) return 0;
 
-        if(!CanMakeLong(headers_size))                           return 0;
-        if(fseek(p_ctx->fp, (long)headers_size, SEEK_SET))       return 0;
-        if(!ReadPalette(p_ctx->palette, file_colors, p_ctx->fp)) return 0;
-    }
+    /* We always allocate a full palette even if the file only claims to
+     * contain a smaller number, so we don't have to check for out of bound
+     * color lookups.  Not sure what the desired behavior is, but loading the
+     * image anyway and treating OOB colors as black seems ok to me.  0-fill so
+     * lookups beyond the file's palette get set to black.
+     */
+    if(!(p_ctx->palette = (bmp_color *)
+         calloc(colors, sizeof(p_ctx->palette[0])))) return 0;
+
+    if(!CanMakeLong(p_ctx->headers_size))                     return 0;
+    if(fseek(p_ctx->fp, (long)p_ctx->headers_size, SEEK_SET)) return 0;
+    if(!ReadPalette(p_ctx->palette, file_colors, p_ctx->fp))  return 0;
+
+    return 1;
 }
 
 /* Returns whether a non-negative integer is a power of 2.
@@ -636,80 +636,67 @@ static unsigned int Make8Bits(unsigned int value, unsigned int bitspan)
     return output;
 }
 
+/* Applies a bitfield mask to a value, x.
+ */
+#define ApplyBitfield(x, bitfield) \
+        (((x) >> (bitfield).start) & ((UINT32_C(1) << (bitfield).span) - 1))
+
+/* Reads four bytes out of a memory buffer and converts it to a uint32_t.
+ */
 #define LoadLittleUint32(buf) (((uint32_t)(buf)[0]      ) + \
                                ((uint32_t)(buf)[1] <<  8) + \
                                ((uint32_t)(buf)[2] << 16) + \
                                ((uint32_t)(buf)[3] << 24))
 
-/* Decodes 32-bit bitmap data by applying bitmasks.  Takes a pointer to an
- * output buffer scan line (p_out), a pointer to the end of the *pixel data* of
- * this scan line (p_out_end), a pointer to the source scan line of file data
- * (p_file), and our context.
+/* Decodes 32-bit bitmap data by applying bitmasks.  The 16- and 32-bit
+ * decoders could be made more efficient by whitelisting supported bit patterns
+ * ahead of time and special-casing their decoding here, but this allows us to
+ * support more bitmask patterns, and shouldn't be *too* inefficient in any
+ * case.
+ *
+ * Takes a pointer to an output buffer scan line (p_out), a pointer to the end
+ * of the *pixel data* of this scan line (p_out_end), a pointer to the source
+ * scan line of file data (p_file), and our context.
  */
 static void Decode32(uint8_t * p_out,
                      const uint8_t * p_out_end,
                      const uint8_t * p_file,
                      const read_context * p_ctx)
 {
-    bitfield * fields = p_ctx->bitfields;
+    const bitfield * bf = p_ctx->bitfields;
 
     while(p_out < p_out_end)
     {
         uint32_t value = LoadLittleUint32(p_file);
 
-        *p_out++ = Make8Bits(
-            (value >> fields[0].start) & ((UINT32_C(1) << fields[0].span) - 1),
-            fields[0].span
-        );
-        *p_out++ = Make8Bits(
-            (value >> fields[1].start) & ((UINT32_C(1) << fields[1].span) - 1),
-            fields[1].span
-        );
-        *p_out++ = Make8Bits(
-            (value >> fields[2].start) & ((UINT32_C(1) << fields[2].span) - 1),
-            fields[2].span
-        );
+        *p_out++ = Make8Bits(ApplyBitfield(value, bf[0]), bf[0].span);
+        *p_out++ = Make8Bits(ApplyBitfield(value, bf[1]), bf[1].span);
+        *p_out++ = Make8Bits(ApplyBitfield(value, bf[2]), bf[2].span);
 
         p_file += 4;
     }
 }
 
 /* Decodes 32-bit bitmap data the same as Decode32, but adds an alpha channel.
- * If present in the file, its values will be used; if not, the default value
- * is output.
+ * If an alpha channel is present in the file, its values will be used; if not,
+ * the default value is output.
  */
 static void Decode32Alpha(uint8_t * p_out,
                           const uint8_t * p_out_end,
                           const uint8_t * p_file,
                           const read_context * p_ctx)
 {
-    bitfield * fields = p_ctx->bitfields;
+    const bitfield * bf = p_ctx->bitfields;
 
     while(p_out < p_out_end)
     {
         uint32_t value = LoadLittleUint32(p_file);
 
-        *p_out++ = Make8Bits(
-            (value >> fields[0].start) & ((UINT32_C(1) << fields[0].span) - 1),
-            fields[0].span
-        );
-        *p_out++ = Make8Bits(
-            (value >> fields[1].start) & ((UINT32_C(1) << fields[1].span) - 1),
-            fields[1].span
-        );
-        *p_out++ = Make8Bits(
-            (value >> fields[2].start) & ((UINT32_C(1) << fields[2].span) - 1),
-            fields[2].span
-        );
-
-        if(fields[3].span)
-        {
-            *p_out++ = Make8Bits(
-                (value >> fields[3].start) &
-                        ((UINT32_C(1) << fields[3].span) - 1),
-                fields[2].span
-            );
-        }
+        *p_out++ = Make8Bits(ApplyBitfield(value, bf[0]), bf[0].span);
+        *p_out++ = Make8Bits(ApplyBitfield(value, bf[1]), bf[1].span);
+        *p_out++ = Make8Bits(ApplyBitfield(value, bf[2]), bf[2].span);
+        if(bf[3].span)
+            *p_out++ = Make8Bits(ApplyBitfield(value, bf[3]), bf[3].span);
         else
             *p_out++ = BMPREAD_DEFAULT_ALPHA;
 
@@ -718,9 +705,7 @@ static void Decode32Alpha(uint8_t * p_out,
 }
 
 /* Decodes 24-bit bitmap data--basically just swaps the order of color
- * components.  Takes a pointer to an output buffer scan line, (p_out), a
- * pointer to the end of the *pixel data* of this scan line (p_out_end), a
- * pointer to the source scan line of file data (p_file), and our context.
+ * components.
  */
 static void Decode24(uint8_t * p_out,
                      const uint8_t * p_out_end,
@@ -735,6 +720,8 @@ static void Decode24(uint8_t * p_out,
 
         p_file += 3;
     }
+
+    (void)p_ctx; /* Unused.  This prevents a pedantic warning. */
 }
 
 /* Decodes 24-bit bitmap data the same as Decode24, but adds an alpha channel
@@ -754,53 +741,58 @@ static void Decode24Alpha(uint8_t * p_out,
 
         p_file += 3;
     }
+
+    (void)p_ctx; /* Unused. */
 }
 
-/* Decodes 16-bit bitmap data.  Takes a pointer to an output buffer scan line
-* (p_out), a pointer to the end of the PIXEL DATA of this scan line
-* (p_out_end), a pointer to the source scan line of file data (p_file), and a
-*  array of bit fields to decode the data.
-*/
+/* Reads two bytes out of a memory buffer and converts it to a uint16_t.
+ */
+#define LoadLittleUint16(buf) (((uint16_t)(buf)[0]     ) + \
+                               ((uint16_t)(buf)[1] << 8))
+
+/* Decodes 16-bit bitmap data by applying bitmasks.
+ */
 static void Decode16(uint8_t * p_out,
                      const uint8_t * p_out_end,
                      const uint8_t * p_file,
                      const read_context * p_ctx)
 {
-    uint32_t * value;
+    const bitfield * bf = p_ctx->bitfields;
+
     while(p_out < p_out_end)
     {
-        value = (uint32_t*)p_file;
+        uint16_t value = LoadLittleUint16(p_file);
 
-        *p_out++ = (uint8_t)(
-                             ((*value & p_ctx->bit_fields[0].bit_mask)
-                                     >> p_ctx->bit_fields[0].bit_shift)
-                             * p_ctx->bit_fields[0].value_multiplier
-                            );
-        *p_out++ = (uint8_t)(
-                             ((*value & p_ctx->bit_fields[1].bit_mask)
-                                     >> p_ctx->bit_fields[1].bit_shift)
-                             * p_ctx->bit_fields[1].value_multiplier
-                            );
-        *p_out++ = (uint8_t)(
-                             ((*value & p_ctx->bit_fields[2].bit_mask)
-                                     >> p_ctx->bit_fields[2].bit_shift)
-                             * p_ctx->bit_fields[2].value_multiplier
-                            );
+        *p_out++ = Make8Bits(ApplyBitfield(value, bf[0]), bf[0].span);
+        *p_out++ = Make8Bits(ApplyBitfield(value, bf[1]), bf[1].span);
+        *p_out++ = Make8Bits(ApplyBitfield(value, bf[2]), bf[2].span);
 
-        if(p_ctx->out_channels == 4)
-        {
-            /* Alpha. */
-            if(p_ctx->bit_fields[3].bit_mask)
-            {
-                *p_out++ = (uint8_t)(
-                                     ((*value & p_ctx->bit_fields[3].bit_mask)
-                                             >> p_ctx->bit_fields[3].bit_shift)
-                                     * p_ctx->bit_fields[3].value_multiplier
-                                    );
-            }
-            else
-                *p_out++ = BMPREAD_DEFAULT_ALPHA;
-        }
+        p_file += 2;
+    }
+}
+
+/* Decodes 16-bit bitmap data the same as Decode16, but adds an alpha channel.
+ * If an alpha channel is present in the file, its values will be used; if not,
+ * the default value is output.
+ */
+static void Decode16Alpha(uint8_t * p_out,
+                          const uint8_t * p_out_end,
+                          const uint8_t * p_file,
+                          const read_context * p_ctx)
+{
+    const bitfield * bf = p_ctx->bitfields;
+
+    while(p_out < p_out_end)
+    {
+        uint32_t value = LoadLittleUint32(p_file);
+
+        *p_out++ = Make8Bits(ApplyBitfield(value, bf[0]), bf[0].span);
+        *p_out++ = Make8Bits(ApplyBitfield(value, bf[1]), bf[1].span);
+        *p_out++ = Make8Bits(ApplyBitfield(value, bf[2]), bf[2].span);
+        if(bf[3].span)
+            *p_out++ = Make8Bits(ApplyBitfield(value, bf[3]), bf[3].span);
+        else
+            *p_out++ = BMPREAD_DEFAULT_ALPHA;
 
         p_file += 2;
     }
