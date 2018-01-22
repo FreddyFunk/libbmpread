@@ -21,87 +21,40 @@
 ******************************************************************************/
 
 
+#include <GLFW/glfw3.h>
 #include <stdio.h>
-
-#ifdef _WIN32
-#include <windows.h>
-#endif
-#include <GL/gl.h>
-#include <GL/glut.h>
+#include <stdlib.h>
+#include <string.h>
 
 #include "bmpread.h"
 
 
-static void DrawBitmap(void);
+static GLuint texture = 0;
 
 
-static GLuint tex = 0;
-
-
-int main(int argc, char * argv[])
+static void Error(int error, const char * description)
 {
-    bmpread_t bmp;
+    fprintf(stderr, "Error: %s\n", description);
+    exit(1);
 
-    puts("Example utility for libbmpread");
-    puts("Copyright (C) 2005, 2012, 2016 Charles Lindsay <chaz@chazomatic.us>");
-    puts("");
-
-    /* TODO: allow --alpha and --any-size. */
-    if(argc < 2)
-    {
-        printf("Usage: %s <bmpfile> [glut_options]\n", argv[0]);
-        puts("Loads <bmpfile> and attempts to display it on an OpenGL quad, stretched across");
-        puts("the entire window, using GLUT.  If the bitmap looks correct, libbmpread works");
-        puts("correctly!  You can pass options to GLUT using [glut_options].");
-        return 0;
-    }
-
-    printf("Loading %s...", argv[1]);
-    if(!bmpread(argv[1], 0, &bmp))
-    {
-        puts("error!");
-        return 1;
-    }
-    puts("OK");
-
-    glutInitWindowSize(bmp.width, bmp.height);
-    glutInit(&argc, argv);
-    glutInitDisplayMode(GLUT_RGB | GLUT_DOUBLE);
-    glutCreateWindow(argv[1]);
-
-    glutDisplayFunc(DrawBitmap);
-
-    glMatrixMode(GL_PROJECTION);
-    glLoadIdentity();
-    glOrtho(-0.5f, 0.5f, -0.5f, 0.5f, 0.1f, 1.0f);
-
-    glMatrixMode(GL_MODELVIEW);
-    glLoadIdentity();
-
-    glEnable(GL_TEXTURE_2D);
-
-    glGenTextures(1, &tex);
-    glBindTexture(GL_TEXTURE_2D, tex);
-    /* TODO: handle alpha. */
-    glTexImage2D(GL_TEXTURE_2D, 0, 3, bmp.width, bmp.height, 0,
-                 GL_RGB, GL_UNSIGNED_BYTE, bmp.data);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-
-    bmpread_free(&bmp);
-
-    glutPostRedisplay();
-    glutMainLoop();
-    return 0;
+    (void)error; /* Unused. */
 }
 
-static void DrawBitmap(void)
+static void Paint(GLFWwindow * window)
 {
+    int width;
+    int height;
+
+    glfwGetFramebufferSize(window, &width, &height);
+    glViewport(0, 0, width, height);
+
     glMatrixMode(GL_MODELVIEW);
     glPushMatrix();
     glTranslatef(0.0f, 0.0f, -0.5f);
 
-    glBindTexture(GL_TEXTURE_2D, tex);
+    glClear(GL_COLOR_BUFFER_BIT);
+
+    glBindTexture(GL_TEXTURE_2D, texture);
 
     glBegin(GL_QUADS);
     glTexCoord2f(0.0f, 0.0f); glVertex3f(-0.5f, -0.5f, 0.0f);
@@ -111,6 +64,92 @@ static void DrawBitmap(void)
     glEnd();
 
     glPopMatrix();
+}
 
-    glutSwapBuffers();
+int main(int argc, char * argv[])
+{
+    const char * file = NULL;
+    unsigned int flags = 0;
+    bmpread_t bmp;
+
+    GLFWwindow * window;
+
+    int i;
+
+    puts("Example utility for libbmpread");
+    puts("Copyright (C) 2005, 2012, 2016 Charles Lindsay <chaz@chazomatic.us>");
+    puts("");
+
+    for(i = 1; i < argc; i++)
+    {
+        if(!strcmp(argv[i], "--alpha"))
+        {
+            flags |= BMPREAD_ALPHA;
+            continue;
+        }
+        if(!strcmp(argv[i], "--any-size"))
+        {
+            flags |= BMPREAD_ANY_SIZE;
+            continue;
+        }
+        if(!strcmp(argv[i], "--help"))
+        {
+            printf("Usage: %s [--alpha] [--any-size] <bmpfile>\n", argv[0]);
+            puts("Loads <bmpfile> and attempts to display it on an OpenGL quad, stretched across");
+            puts("the entire window, using GLFW.  If the image looks correct, libbmpread works!");
+            puts("Alpha channels are ignored unless you pass --alpha.  The image must have power-");
+            puts("of-two dimensions unless you pass --any-size.");
+            return 0;
+        }
+
+        if(file) Error(0, "too many arguments; see --help");
+        file = argv[i];
+    }
+    if(!file) Error(0, "missing bmpfile argument; see --help");
+
+    printf("Loading %s...", file);
+    if(!bmpread(file, flags, &bmp)) Error(0, "bmpread() failed");
+    puts("OK");
+
+    glfwSetErrorCallback(Error);
+    glfwInit();
+    atexit(glfwTerminate);
+
+    glfwWindowHint(GLFW_VISIBLE, 0);
+    glfwWindowHint(GLFW_DOUBLEBUFFER, 0);
+    window = glfwCreateWindow(bmp.width, bmp.height, file, NULL, NULL);
+    glfwMakeContextCurrent(window);
+    glfwSetWindowRefreshCallback(window, Paint);
+
+    glMatrixMode(GL_PROJECTION);
+    glLoadIdentity();
+    glOrtho(-0.5f, 0.5f, -0.5f, 0.5f, 0.1f, 1.0f);
+
+    glMatrixMode(GL_MODELVIEW);
+    glLoadIdentity();
+
+    glEnable(GL_TEXTURE_2D);
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+    glClearColor(0.5f, 0.5f, 0.5f, 1.0f);
+
+    glGenTextures(1, &texture);
+    glBindTexture(GL_TEXTURE_2D, texture);
+    glTexImage2D(GL_TEXTURE_2D, 0, ((bmp.flags & BMPREAD_ALPHA) ? 4 : 3),
+                 bmp.width, bmp.height, 0,
+                 ((bmp.flags & BMPREAD_ALPHA) ? GL_RGBA : GL_RGB),
+                 GL_UNSIGNED_BYTE, bmp.data);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+
+    glfwShowWindow(window);
+
+    while(!glfwWindowShouldClose(window))
+        glfwWaitEvents();
+
+    glfwDestroyWindow(window);
+    bmpread_free(&bmp);
+
+    return 0;
 }
