@@ -118,5 +118,12 @@ of the public API.  The tests are compiled as both portable C and portable C++
 code to cover compilation in each, and each resulting test binary is run to
 check its runtime behavior.
 
+Authors
+-------
+
+ * [Charles Lindsay](https://github.com/chazomaticus) (maintainer)
+ * [xFrednet](https://github.com/xFrednet/) (added support for 16- and 32-bit
+   files)
+
 
 Enjoy!
