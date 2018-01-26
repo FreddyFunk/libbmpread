@@ -613,9 +613,9 @@ static int Validate(read_context * p_ctx)
 
 /* Evenly distribute a value that spans a given number of bits into 8 bits.
  */
-static unsigned int Make8Bits(unsigned int value, unsigned int bitspan)
+static uint32_t Make8Bits(uint32_t value, uint32_t bitspan)
 {
-    unsigned int output = 0;
+    uint32_t output = 0;
 
     if(bitspan == 8)
         return value;
