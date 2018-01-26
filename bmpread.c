@@ -321,6 +321,11 @@ typedef struct bitfield
 
 } bitfield;
 
+/* Applies a bitfield mask to a value, x.
+ */
+#define ApplyBitfield(x, bitfield) \
+        (((x) >> (bitfield).start) & ((UINT32_C(1) << (bitfield).span) - 1))
+
 /* Turns a single mask component into a bitfield.  Returns 0 if the bitmask was
  * invalid, or nonzero if it's ok.  Span of 0 means the bitmask was absent.
  */
@@ -535,13 +540,13 @@ static int Validate(read_context * p_ctx)
     if(!ReadHeader(&p_ctx->header, p_ctx->fp)) return 0;
     if(!ReadInfo(  &p_ctx->info,   p_ctx->fp)) return 0;
 
-    if(p_ctx->info.width <= 0 || p_ctx->info.height == 0) return 0;
-
     if(p_ctx->info.info_size > UINT32_MAX - BMP_HEADER_SIZE) return 0;
     p_ctx->headers_size = BMP_HEADER_SIZE + p_ctx->info.info_size;
 
     if(p_ctx->header.data_offset < p_ctx->headers_size) return 0;
     p_ctx->after_headers = p_ctx->header.data_offset - p_ctx->headers_size;
+
+    if(p_ctx->info.width <= 0 || p_ctx->info.height == 0) return 0;
 
     if(!CanMakeSizeT(p_ctx->info.width))  return 0;
     if(!CanNegate(   p_ctx->info.height)) return 0;
@@ -635,11 +640,6 @@ static unsigned int Make8Bits(unsigned int value, unsigned int bitspan)
 
     return output;
 }
-
-/* Applies a bitfield mask to a value, x.
- */
-#define ApplyBitfield(x, bitfield) \
-        (((x) >> (bitfield).start) & ((UINT32_C(1) << (bitfield).span) - 1))
 
 /* Reads four bytes out of a memory buffer and converts it to a uint32_t.
  */
