@@ -39,10 +39,10 @@ extern "C"
 /* Flags for bmpread() and bmpread_t (see below).  Combine with bitwise OR.
  */
 
-/* Output rgb_data as top line first (default is bottom line first). */
+/* Output data as top line first (default is bottom line first). */
 #define BMPREAD_TOP_DOWN 1u
 
-/* Don't pad lines to start on a multiple-of-four offset (default does pad). */
+/* Don't pad lines to span a multiple of four bytes (default does pad). */
 #define BMPREAD_BYTE_ALIGN 2u
 
 /* Allow loading of any size bitmap (default is bitmaps must be 2^n x 2^m). */
@@ -75,10 +75,10 @@ typedef struct bmpread_t
      * line comes first, proceeding upward.  However, with BMPREAD_TOP_DOWN set
      * in flags, the top line comes first, proceeding downward instead.
      *
-     * Lines by default must span a number of bytes divisible by four.  If the
-     * image width and pixel span don't yield a multiple of four (a non-issue
-     * for BMPREAD_ALPHA with four bytes per pixel), the end of each line is
-     * padded with unused bytes until the requirement is met.  For example,
+     * Lines by default must span a multiple of four bytes.  If the image width
+     * and pixel span don't yield a multiple of four (a non-issue for
+     * BMPREAD_ALPHA with four bytes per pixel), the end of each line is padded
+     * with up to three unused bytes to meet the requirement.  For example,
      * each line of an image three pixels wide, loaded without BMPREAD_ALPHA,
      * will span 12 bytes (3 pixels * 3 (RGB) channels per pixel = 9, padded
      * with 3 bytes up to the next multiple of 4).  However, this behavior is
@@ -107,10 +107,11 @@ typedef struct bmpread_t
  * or nonzero if the file loaded ok.
  *
  * Notes:
- * The file must be a Windows 3 (not NT) or higher format bitmap file with bit
- * depth of 1, 4, 8, 16, 24, or 32, and must not be compressed (no RLE).
+ * The file must be a Windows 3 (not NT) or higher format bitmap file with any
+ * valid bit depth (1, 4, 8, 16, 24, or 32), and must not be compressed (no
+ * RLE).
  *
- * Default behavior is for bmpread to return data in a format directly usable
+ * Default behavior is for bmpread() to return data in a format directly usable
  * by OpenGL texture functions, e.g. glTexImage2D, format GL_RGB (or GL_RGBA if
  * BMPREAD_ALPHA is in flags), type GL_UNSIGNED_BYTE.  This implies a few
  * oddities:
