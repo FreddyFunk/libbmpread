@@ -4,8 +4,9 @@ libbmpread
 libbmpread is a tiny, fast bitmap (.bmp) image file loader, written from
 scratch in portable C (see below), with no dependencies.  Its default behavior
 is compatible with OpenGL texture functions, making it ideal for use in simple
-games.  It handles uncompressed monochrome, 16- and 256-color, and 24-bit
-bitmap files of any size (no RLE support yet).
+games.  It handles any valid bit depth (1, 4, 8, 16, 24, or 32), and can even
+load the alpha channel from 16- and 32-bit bitmaps.  There is no support for
+RLE or other compression schemes yet.
 
 <https://github.com/chazomaticus/libbmpread>
 
