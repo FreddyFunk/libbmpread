@@ -186,6 +186,46 @@ static void test_ReadUint8(void)
     fclose(fp);
 }
 
+static void test_ApplyBitfield(void)
+{
+    bitfield field = {4, 4};
+
+    assert(ApplyBitfield(0xfafU, field) == 0xa);
+    assert(ApplyBitfield(0x0U, field) == 0x0);
+
+    field.start = 0;
+    field.span = 0;
+
+    assert(ApplyBitfield(0xffU, field) == 0x0);
+}
+
+static void test_ParseBitfield(void)
+{
+    bitfield field;
+
+    assert(ParseBitfield(&field, 0x0));
+    assert(field.start == 0);
+    assert(field.span == 0);
+
+    assert(ParseBitfield(&field, 0x1));
+    assert(field.start == 0);
+    assert(field.span == 1);
+
+    assert(ParseBitfield(&field, 0x2));
+    assert(field.start == 1);
+    assert(field.span == 1);
+
+    assert(ParseBitfield(&field, 0x3));
+    assert(field.start == 0);
+    assert(field.span == 2);
+
+    assert(ParseBitfield(&field, 0xf0));
+    assert(field.start == 4);
+    assert(field.span == 4);
+
+    assert(!ParseBitfield(&field, 0x81));
+}
+
 static void test_IsPowerOf2(void)
 {
     uint32_t i;
@@ -243,6 +283,28 @@ static void test_GetLineLength(void)
     /* Etc. */
 }
 
+static void test_Make8Bits(void)
+{
+    assert(Make8Bits(0x0, 1) ==  0x0);
+    assert(Make8Bits(0x1, 1) == 0xff);
+    assert(Make8Bits(0x5, 3) == 0xb6);
+    assert(Make8Bits(0xa, 4) == 0xaa);
+
+    assert(Make8Bits(0xa5ffffff, 32) == 0xa5);
+}
+
+static void test_LoadLittleUint32(void)
+{
+    uint8_t buf[] = {0x1, 0x2, 0x3, 0x4};
+    assert(LoadLittleUint32(buf) == 0x04030201);
+}
+
+static void test_LoadLittleUint16(void)
+{
+    uint8_t buf[] = {0x1, 0x2};
+    assert(LoadLittleUint16(buf) == 0x0201);
+}
+
 int main(int argc, char * argv[])
 {
     printf("%s: running tests\n", argv[0]);
@@ -264,8 +326,13 @@ int main(int argc, char * argv[])
     TEST(ReadLittleInt32);
     TEST(ReadLittleUint16);
     TEST(ReadUint8);
+    TEST(ApplyBitfield);
+    TEST(ParseBitfield);
     TEST(IsPowerOf2);
     TEST(GetLineLength);
+    TEST(Make8Bits);
+    TEST(LoadLittleUint32);
+    TEST(LoadLittleUint16);
 
 #undef TEST
 
