@@ -19,73 +19,6 @@ to the build.
 The API exposed by `bmpread.h` is described below.  The same description can be
 found in the header itself.
 
-### Flags
-
-Flags for `bmpread()` and `bmpread_t`.  Combine with bitwise OR.
-
- * `BMPREAD_TOP_DOWN`: Output data as top line first (default is bottom line
-   first).
-
-       #define BMPREAD_TOP_DOWN 1u
-
- * `BMPREAD_BYTE_ALIGN`: Don't pad lines to span a multiple of four bytes
-   (default does pad).
-
-       #define BMPREAD_BYTE_ALIGN 2u
-
- * `BMPREAD_ANY_SIZE`: Allow loading of any size bitmap (default is bitmaps
-   must be 2^n x 2^m).
-
-       #define BMPREAD_ANY_SIZE 4u
-
- * `BMPREAD_ALPHA`: Load and output an alpha channel (default is just color
-   channels).
-
-       #define BMPREAD_ALPHA 8u
-
-### `bmpread_t`
-
-The struct filled by `bmpread()`.  Holds information about the image's pixels.
-
-    typedef struct bmpread_t
-    {
-        int width;
-        int height;
-    
-        unsigned int flags;
-    
-        unsigned char * data;
-    
-    } bmpread_t;
-
- * `width`: Width in pixels.
-
- * `height`: Height in pixels.
-
- * `flags`: `BMPREAD_*` flags, combined with bitwise OR, that affect the format
-   of `data`.  These are set to the flags passed to `bmpread()`.
-
- * `data`: A buffer holding the pixel data of the image.
-
-   By default, each pixel spans three bytes: the red, green, and blue color
-   components in that order.  However, with `BMPREAD_ALPHA` set in `flags`,
-   each pixel spans four bytes: the red, green, blue, and alpha components in
-   that order.
-
-   Pixels are ordered left to right sequentially.  By default, the bottom line
-   comes first, proceeding upward.  However, with `BMPREAD_TOP_DOWN` set in
-   `flags`, the top line comes first, proceeding downward instead.
-
-   Lines by default must span a multiple of four bytes.  If the image width and
-   pixel span don't yield a multiple of four (a non-issue for `BMPREAD_ALPHA`
-   with four bytes per pixel), the end of each line is padded with up to three
-   unused bytes to meet the requirement.  For example, each line of an image
-   three pixels wide, loaded without `BMPREAD_ALPHA`, will span 12 bytes (3
-   pixels * 3 (RGB) channels per pixel = 9, padded with 3 bytes up to the next
-   multiple of 4).  However, this behavior is disabled with
-   `BMPREAD_BYTE_ALIGN` set in flags, in which case all lines span exactly
-   `width * pixel_span` bytes.
-
 ### `bmpread()`
 
 Loads the specified bitmap file from disk and fills out a `bmpread_t` struct
@@ -142,6 +75,73 @@ OpenGL).
     void bmpread_free(bmpread_t * p_bmp);
 
  * `p_bmp`: The pointer you previously passed to `bmpread()`.
+
+### `bmpread_t`
+
+The struct filled by `bmpread()`.  Holds information about the image's pixels.
+
+    typedef struct bmpread_t
+    {
+        int width;
+        int height;
+    
+        unsigned int flags;
+    
+        unsigned char * data;
+    
+    } bmpread_t;
+
+ * `width`: Width in pixels.
+
+ * `height`: Height in pixels.
+
+ * `flags`: `BMPREAD_*` flags, combined with bitwise OR, that affect the format
+   of `data`.  These are set to the flags passed to `bmpread()`.
+
+ * `data`: A buffer holding the pixel data of the image.
+
+   By default, each pixel spans three bytes: the red, green, and blue color
+   components in that order.  However, with `BMPREAD_ALPHA` set in `flags`,
+   each pixel spans four bytes: the red, green, blue, and alpha components in
+   that order.
+
+   Pixels are ordered left to right sequentially.  By default, the bottom line
+   comes first, proceeding upward.  However, with `BMPREAD_TOP_DOWN` set in
+   `flags`, the top line comes first, proceeding downward instead.
+
+   Lines by default must span a multiple of four bytes.  If the image width and
+   pixel span don't yield a multiple of four (a non-issue for `BMPREAD_ALPHA`
+   with four bytes per pixel), the end of each line is padded with up to three
+   unused bytes to meet the requirement.  For example, each line of an image
+   three pixels wide, loaded without `BMPREAD_ALPHA`, will span 12 bytes (3
+   pixels * 3 (RGB) channels per pixel = 9, padded with 3 bytes up to the next
+   multiple of 4).  However, this behavior is disabled with
+   `BMPREAD_BYTE_ALIGN` set in flags, in which case all lines span exactly
+   `width * pixel_span` bytes.
+
+### Flags
+
+Flags for `bmpread()` and `bmpread_t`.  Combine with bitwise OR.
+
+ * `BMPREAD_TOP_DOWN`: Output data as top line first (default is bottom line
+   first).
+
+       #define BMPREAD_TOP_DOWN 1u
+
+ * `BMPREAD_BYTE_ALIGN`: Don't pad lines to span a multiple of four bytes
+   (default does pad).
+
+       #define BMPREAD_BYTE_ALIGN 2u
+
+ * `BMPREAD_ANY_SIZE`: Allow loading of any size bitmap (default is bitmaps
+   must be 2^n x 2^m).
+
+       #define BMPREAD_ANY_SIZE 4u
+
+ * `BMPREAD_ALPHA`: Load and output an alpha channel (default is just color
+   channels).
+
+       #define BMPREAD_ALPHA 8u
 
 Example
 -------
