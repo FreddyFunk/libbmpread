@@ -97,9 +97,9 @@ with data about it.
 
  * `bmp_file`: The filename of the bitmap file to load.
 
- * `flags`: Any `BMPREAD_*` flags, defined above, combined with bitwise OR.
-   Specify 0 (or `BMPREAD_ALPHA` if you want an alpha channel) for standard,
-   OpenGL compliant behavior.
+ * `flags`: Any `BMPREAD_*` flags, combined with bitwise OR.  Specify 0 (or
+   `BMPREAD_ALPHA` if you want an alpha channel) for standard, OpenGL compliant
+   behavior.
 
  * `p_bmp_out`: Pointer to a `bmpread_t` struct to fill with information.  Its
    contents on input are ignored.  Must be freed with `bmpread_free()` when no
