@@ -169,7 +169,7 @@ GLuint LoadTexture(const char * bitmap_file)
     }
 
     /* At this point, bitmap.width and .height hold the pixel dimensions of the
-     * file, and bitmap.rgb_data holds the raw pixel data in RGB triplets.
+     * file, and bitmap.data holds the raw pixel data in RGB triplets.
      */
 
     glGenTextures(1, &texture);
@@ -178,7 +178,7 @@ GLuint LoadTexture(const char * bitmap_file)
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
     glTexImage2D(GL_TEXTURE_2D, 0, 3, bitmap.width, bitmap.height, 0,
-                 GL_RGB, GL_UNSIGNED_BYTE, bitmap.rgb_data);
+                 GL_RGB, GL_UNSIGNED_BYTE, bitmap.data);
 
     bmpread_free(&bitmap);
 
