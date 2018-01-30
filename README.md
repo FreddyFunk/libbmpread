@@ -24,9 +24,11 @@ found in the header itself.
 Loads the specified bitmap file from disk and fills out a `bmpread_t` struct
 with data about it.
 
-    int bmpread(const char * bmp_file,
-                unsigned int flags,
-                bmpread_t * p_bmp_out);
+```c
+int bmpread(const char * bmp_file,
+            unsigned int flags,
+            bmpread_t * p_bmp_out);
+```
 
  * `bmp_file`: The filename of the bitmap file to load.
 
@@ -72,7 +74,9 @@ Frees memory allocated during `bmpread()`.  Call `bmpread_free()` when you are
 done using the `bmpread_t` struct (e.g. after you have passed the data on to
 OpenGL).
 
-    void bmpread_free(bmpread_t * p_bmp);
+```c
+void bmpread_free(bmpread_t * p_bmp);
+```
 
  * `p_bmp`: The pointer you previously passed to `bmpread()`.
 
@@ -80,16 +84,18 @@ OpenGL).
 
 The struct filled by `bmpread()`.  Holds information about the image's pixels.
 
-    typedef struct bmpread_t
-    {
-        int width;
-        int height;
-    
-        unsigned int flags;
-    
-        unsigned char * data;
-    
-    } bmpread_t;
+```c
+typedef struct bmpread_t
+{
+    int width;
+    int height;
+
+    unsigned int flags;
+
+    unsigned char * data;
+
+} bmpread_t;
+```
 
  * `width`: Width in pixels.
 
@@ -126,22 +132,30 @@ Flags for `bmpread()` and `bmpread_t`.  Combine with bitwise OR.
  * `BMPREAD_TOP_DOWN`: Output data as top line first (default is bottom line
    first).
 
-       #define BMPREAD_TOP_DOWN 1u
+   ```c
+   #define BMPREAD_TOP_DOWN 1u
+   ```
 
  * `BMPREAD_BYTE_ALIGN`: Don't pad lines to span a multiple of four bytes
    (default does pad).
 
-       #define BMPREAD_BYTE_ALIGN 2u
+   ```c
+   #define BMPREAD_BYTE_ALIGN 2u
+   ```
 
  * `BMPREAD_ANY_SIZE`: Allow loading of any size bitmap (default is bitmaps
    must be 2^n x 2^m).
 
-       #define BMPREAD_ANY_SIZE 4u
+   ```c
+   #define BMPREAD_ANY_SIZE 4u
+   ```
 
  * `BMPREAD_ALPHA`: Load and output an alpha channel (default is just color
    channels).
 
-       #define BMPREAD_ALPHA 8u
+   ```c
+   #define BMPREAD_ALPHA 8u
+   ```
 
 Example
 -------
