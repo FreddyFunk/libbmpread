@@ -484,9 +484,9 @@ static int ValidateAndReadPalette(read_context * p_ctx)
     if(!(p_ctx->palette = (bmp_color *)
          calloc(colors, sizeof(p_ctx->palette[0])))) return 0;
 
-    if(!CanMakeLong(p_ctx->headers_size))                     return 0;
-    if(fseek(p_ctx->fp, (long)p_ctx->headers_size, SEEK_SET)) return 0;
-    if(!ReadPalette(p_ctx->palette, file_colors, p_ctx->fp))  return 0;
+    if(!CanMakeLong(p_ctx->headers_size))                    return 0;
+    if(fseek(p_ctx->fp, p_ctx->headers_size, SEEK_SET))      return 0;
+    if(!ReadPalette(p_ctx->palette, file_colors, p_ctx->fp)) return 0;
 
     return 1;
 }
@@ -514,11 +514,8 @@ static int IsPowerOf2(uint32_t x)
  */
 static size_t GetLineLength(size_t width, size_t bpp)
 {
-    size_t bits;     /* Number of bits in a line. */
-    size_t pad_bits; /* Number of padding bits to make bits divisible by 32. */
-
-    bits = width * bpp;
-    pad_bits = (32 - (bits & 0x1f)) & 0x1f; /* x & 0x1f == x % 32 */
+    size_t bits = width * bpp;
+    size_t pad_bits = (32 - (bits & 0x1f)) & 0x1f; /* x & 0x1f == x % 32 */
 
     /* Check for overflow, in both the above multiplication and the below
      * addition.  It's well defined to do this in any order relative to the
@@ -567,7 +564,7 @@ static int Validate(read_context * p_ctx)
     {
         case COMPRESSION_NONE:
             if(p_ctx->info.bits != 1 && p_ctx->info.bits != 4 &&
-               p_ctx->info.bits != 8 && p_ctx->info.bits != 24)  return 0;
+               p_ctx->info.bits != 8 && p_ctx->info.bits != 24) return 0;
             break;
 
         case COMPRESSION_BITFIELDS:
