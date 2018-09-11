@@ -916,9 +916,9 @@ int bmpread(const char * bmp_file, unsigned int flags, bmpread_t * p_bmp_out)
 
         ctx.flags = flags;
 
-        if(!fopen_s(&ctx.fp, bmp_file, "rb")) break;
-        if(!Validate(&ctx))                   break;
-        if(!Decode(&ctx))                     break;
+        if(fopen_s(&ctx.fp, bmp_file, "rb")) break;
+        if(!Validate(&ctx))                  break;
+        if(!Decode(&ctx))                    break;
 
         /* Finally, make sure we can stuff these into ints.  I feel like this
          * is slightly justified by how it keeps the header definition dead
