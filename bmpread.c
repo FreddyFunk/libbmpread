@@ -916,7 +916,7 @@ int bmpread(const char * bmp_file, unsigned int flags, bmpread_t * p_bmp_out)
 
         ctx.flags = flags;
 
-        if(!(ctx.fp = fopen(bmp_file, "rb"))) break;
+        if(!fopen_s(&ctx.fp, bmp_file, "rb")) break;
         if(!Validate(&ctx))                   break;
         if(!Decode(&ctx))                     break;
 
