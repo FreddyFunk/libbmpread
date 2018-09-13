@@ -917,13 +917,13 @@ int bmpread(const char * bmp_file, unsigned int flags, bmpread_t * p_bmp_out)
         ctx.flags = flags;
 
         /* Use "fopen_s" instead of "fopen" when compiling with 
-		* Visual Studio 2015 or newer to avoid a compiler warning
-		*/
-		#if _MSC_VER >= 1900
-		if (fopen_s(&ctx.fp, bmp_file, "rb")) break;
-		#else
-		if (!(ctx.fp = fopen(bmp_file, "rb"))) break;
-		#endif
+	* Visual Studio 2015 or newer to avoid a compiler warning
+	*/
+	#if _MSC_VER >= 1900
+	if (fopen_s(&ctx.fp, bmp_file, "rb")) break;
+	#else
+	if (!(ctx.fp = fopen(bmp_file, "rb"))) break;
+	#endif
         
         if(!Validate(&ctx))                  break;
         if(!Decode(&ctx))                    break;
