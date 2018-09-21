@@ -481,8 +481,8 @@ static int ValidateAndReadPalette(read_context * p_ctx)
      * image anyway and treating OOB colors as black seems ok to me.  0-fill so
      * lookups beyond the file's palette get set to black.
      */
-    if(!(p_ctx->palette = (bmp_color *)
-         calloc(colors, sizeof(p_ctx->palette[0])))) return 0;
+    p_ctx->palette = (bmp_color *)calloc(colors, sizeof(p_ctx->palette[0]));
+    if(!p_ctx->palette) return 0;
 
     if(!CanMakeLong(p_ctx->headers_size))                    return 0;
     if(fseek(p_ctx->fp, p_ctx->headers_size, SEEK_SET))      return 0;
@@ -598,12 +598,14 @@ static int Validate(read_context * p_ctx)
     if(!ValidateAndReadPalette(p_ctx)) return 0;
 
     /* Set things up for decoding. */
-    if(!(p_ctx->file_data = (uint8_t *)malloc(p_ctx->file_line_len))) return 0;
+    p_ctx->file_data = (uint8_t *)malloc(p_ctx->file_line_len);
+    if(!p_ctx->file_data) return 0;
 
     if(!CanMakeSizeT(p_ctx->lines))                           return 0;
     if(!CanMultiply( p_ctx->lines, p_ctx->out_line_len))      return 0;
-    if(!(p_ctx->data_out = (uint8_t *)
-         malloc((size_t)p_ctx->lines * p_ctx->out_line_len))) return 0;
+    
+    p_ctx->data_out = (uint8_t *)malloc((size_t)p_ctx->lines * p_ctx->out_line_len);
+    if(!p_ctx->data_out) return 0;
 
     return 1;
 }
